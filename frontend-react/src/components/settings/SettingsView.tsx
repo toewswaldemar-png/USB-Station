@@ -81,8 +81,6 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 const inputCls = 'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:border-transparent'
 const selectCls = 'rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:border-transparent'
 
-const isKiosk = !!(window as any).fsClientExit
-
 export default function SettingsView({ onClose, sseMsg }: { onClose: () => void; sseMsg: { data: string } }) {
   const { settings, update } = useUISettingsStore()
   const { config, save: saveConfig } = useConfigStore()
@@ -176,9 +174,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
 
         <div className="px-5 py-5 space-y-4">
 
-          {/* Admin-Einstellungen – nur im Browser sichtbar */}
-          {!isKiosk && <>
-            <Card title="Allgemein">
+          <Card title="Allgemein">
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-gray-400">App-Name</label>
                 <input
@@ -322,10 +318,8 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 </p>
               )}
             </Card>
-          </>}
 
-          {/* FileStation Client – nur im Kiosk (WebView2) sichtbar */}
-          {isKiosk && <Card title="FileStation Client">
+          <Card title="FileStation Client">
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -351,7 +345,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 Beenden
               </button>
             </div>
-          </Card>}
+          </Card>
 
         </div>
       </div>
