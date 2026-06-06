@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Maximize, RotateCcw, Power, AlertTriangle } from 'lucide-react'
+import { X, Maximize, Minimize, RotateCcw, Power, AlertTriangle } from 'lucide-react'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useFilesStore } from '@/stores/filesStore'
@@ -85,9 +85,22 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const { settings, update } = useUISettingsStore()
   const { config, save: saveConfig } = useConfigStore()
   const refreshFiles = useFilesStore(s => s.refreshFiles)
+  const [isFs, setIsFs] = useState(false)
   const [exitConfirm, setExitConfirm] = useState(false)
   const exitTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const exitBtnRef = useRef<HTMLButtonElement>(null)
   useEffect(() => () => clearTimeout(exitTimer.current), [])
+  useEffect(() => {
+    if (!exitConfirm) return
+    const handler = (e: MouseEvent) => {
+      if (!exitBtnRef.current?.contains(e.target as Node)) {
+        clearTimeout(exitTimer.current)
+        setExitConfirm(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [exitConfirm])
   const [audioPath, setAudioPath] = useState(config.audio_path)
   const [webdavUrl, setWebdavUrl] = useState(config.webdav_url)
   const [webdavUser, setWebdavUser] = useState(config.webdav_user)
@@ -332,10 +345,10 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
           <Card title="FileStation Client">
             <div className="flex gap-2">
               <button
-                onClick={() => clientCmd('fullscreen')}
+                onClick={() => { setIsFs(f => !f); clientCmd('fullscreen') }}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
               >
-                <Maximize size={15} /> Vollbild
+                {isFs ? <><Minimize size={15} /> Fenster</> : <><Maximize size={15} /> Vollbild</>}
               </button>
               <button
                 onClick={() => clientCmd('reload')}
@@ -344,6 +357,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 <RotateCcw size={15} /> Reload
               </button>
               <button
+                ref={exitBtnRef}
                 onClick={() => {
                   if (exitConfirm) {
                     clearTimeout(exitTimer.current)
