@@ -1,21 +1,22 @@
 # Laufzeitdaten – lokal erzeugt, nie eingecheckt
 _build/Server/config.json
 _build/Server/ui_settings.json
-_build/Server/sharecenter.db
+_build/Server/filestation.db
 _build/Server/server.log
 
 # Build-Artefakte
-_build/Server/sharecenter.exe
+_build/Server/filestation.exe
 _build/CopyCenter/copycenter.exe
 
 # Go Dev (air)
-sharecenter-go/config.json
-sharecenter-go/ui_settings.json
-sharecenter-go/sharecenter.db
-sharecenter-go/tmp/
+filestation-go/config.json
+filestation-go/ui_settings.json
+filestation-go/filestation.db
+filestation-go/sharecenter.db
+filestation-go/tmp/
 
 # Gebautes Frontend (von starten.bat neu erzeugt)
-sharecenter-go/webembed/web/
+filestation-go/webembed/web/
 
 # Node
 frontend-react/node_modules/

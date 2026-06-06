@@ -12,8 +12,8 @@ cd ..
 
 echo.
 echo [2/3] Go-Binaries bauen...
-cd sharecenter-go
-go build -o ..\_build\Server\sharecenter.exe ./cmd/server
+cd filestation-go
+go build -o ..\_build\Server\filestation.exe ./cmd/server
 if errorlevel 1 ( echo FEHLER: Go-Server-Build fehlgeschlagen. & pause & exit /b 1 )
 go build -o ..\_build\CopyCenter\copycenter.exe ./cmd/copycenter
 if errorlevel 1 ( echo FEHLER: Go-Copycenter-Build fehlgeschlagen. & pause & exit /b 1 )
@@ -32,7 +32,7 @@ echo   Netzwerk:  http://%ip%:8000
 echo   (copycenter.json in _build\CopyCenter\ fuer Kiosk anpassen)
 echo.
 cd _build\Server
-sharecenter.exe
+filestation.exe
 cd ..\..
 
 echo.

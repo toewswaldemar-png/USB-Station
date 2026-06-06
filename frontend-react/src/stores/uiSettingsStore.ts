@@ -17,7 +17,7 @@ export interface UISettings {
 }
 
 const DEFAULTS: UISettings = {
-  appName: 'ShareCenter',
+  appName: 'FileStation',
   fontFamily: 'system-ui, Segoe UI, sans-serif',
   colorPreset: 0,
   todayStyle: 'ring',

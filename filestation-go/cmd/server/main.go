@@ -11,13 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"sharecenter/internal/api"
-	"sharecenter/internal/config"
-	"sharecenter/internal/db"
-	"sharecenter/internal/scan"
-	"sharecenter/internal/sse"
-	"sharecenter/internal/watch"
-	"sharecenter/webembed"
+	"filestation/internal/api"
+	"filestation/internal/config"
+	"filestation/internal/db"
+	"filestation/internal/scan"
+	"filestation/internal/sse"
+	"filestation/internal/watch"
+	"filestation/webembed"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 
 	config.Init("config.json", "ui_settings.json")
 
-	if err := db.Init("sharecenter.db"); err != nil {
+	if err := db.Init("filestation.db"); err != nil {
 		slog.Error("Datenbank konnte nicht geöffnet werden", "err", err)
 		os.Exit(1)
 	}

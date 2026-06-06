@@ -9,7 +9,7 @@ import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
 import FileOverlay from './FileOverlay'
 
-const COL_KEY = 'sc_colWidths'
+const COL_KEY = 'fs_colWidths'
 
 function loadColWidths() {
   try { return JSON.parse(localStorage.getItem(COL_KEY) || '{}') } catch { return {} }
@@ -20,7 +20,7 @@ function saveColWidths(w: Record<string, number>) {
 
 type SortBy = 'name' | 'date'
 type SortDir = 'asc' | 'desc'
-const SORT_KEY = 'sc_sort'
+const SORT_KEY = 'fs_sort'
 
 interface DirEntry { name: string; is_dir: boolean; size: number }
 

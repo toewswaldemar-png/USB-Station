@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"sharecenter/internal/db"
-	"sharecenter/internal/scan"
+	"filestation/internal/db"
+	"filestation/internal/scan"
 )
 
 type Watcher struct {

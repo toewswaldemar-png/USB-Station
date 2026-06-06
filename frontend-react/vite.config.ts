@@ -9,7 +9,7 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, './src') },
   },
   build: {
-    outDir: '../sharecenter-go/webembed/web',
+    outDir: '../filestation-go/webembed/web',
     emptyOutDir: true,
   },
   server: {

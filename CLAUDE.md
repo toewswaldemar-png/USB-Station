@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**ShareCenter v2** – A self-hosted audio file management app. A Go backend indexes MP3 files from a local directory into SQLite, watches for changes in real time, and serves a React frontend. A separate **CopyCenter** desktop client (`copycenter.exe`) uses Go + WebView2 to wrap the web UI for kiosk use on a different machine.
+**FileStation v2** – A self-hosted audio file management app. A Go backend indexes MP3 files from a local directory into SQLite, watches for changes in real time, and serves a React frontend. A separate **CopyCenter** desktop client (`copycenter.exe`) uses Go + WebView2 to wrap the web UI for kiosk use on a different machine.
 
 The UI language is German throughout (labels, log messages, comments).
 
@@ -15,15 +15,15 @@ The `backend/` (Python/FastAPI) and `frontend/` (Vue 3) directories are **deprec
 ```
 USB-Station/
 ├── _build/
-│   ├── Server/          ← sharecenter.exe + config.json + ui_settings.json + sharecenter.db
+│   ├── Server/          ← filestation.exe + config.json + ui_settings.json + filestation.db
 │   └── CopyCenter/      ← copycenter.exe + copycenter.json
 ├── frontend-react/      ← React-Quellcode
-├── sharecenter-go/      ← Go-Quellcode
+├── filestation-go/      ← Go-Quellcode
 ├── config.example.json  ← Vorlage für _build/Server/config.json
 └── starten.bat
 ```
 
-Laufzeitkonfiguration (`config.json`, `ui_settings.json`, `sharecenter.db`) liegt in `_build/Server/` (Produktion) bzw. `sharecenter-go/` (Dev mit `air`/`go run`).
+Laufzeitkonfiguration (`config.json`, `ui_settings.json`, `filestation.db`) liegt in `_build/Server/` (Produktion) bzw. `filestation-go/` (Dev mit `air`/`go run`).
 
 ## Running the App
 
@@ -31,12 +31,12 @@ Laufzeitkonfiguration (`config.json`, `ui_settings.json`, `sharecenter.db`) lieg
 ```bat
 starten.bat
 ```
-Builds the React frontend into `sharecenter-go/webembed/web/`, compiles `_build/Server/sharecenter.exe` and `_build/CopyCenter/copycenter.exe`, then starts the server from `_build/Server/` at `http://localhost:8000`.
+Builds the React frontend into `filestation-go/webembed/web/`, compiles `_build/Server/filestation.exe` and `_build/CopyCenter/copycenter.exe`, then starts the server from `_build/Server/` at `http://localhost:8000`.
 
 **Development (split servers):**
 ```powershell
-# Terminal 1 – Go backend (API), config aus sharecenter-go/config.json
-cd sharecenter-go
+# Terminal 1 – Go backend (API), config aus filestation-go/config.json
+cd filestation-go
 go run ./cmd/server
 # or with hot-reload:
 air
@@ -50,7 +50,7 @@ Vite proxies `/api/*` to `http://localhost:8000` in dev mode.
 **Frontend build only:**
 ```powershell
 cd frontend-react
-npm run build   # outputs to ../sharecenter-go/webembed/web/
+npm run build   # outputs to ../filestation-go/webembed/web/
 ```
 
 **Lint:**
@@ -61,7 +61,7 @@ npm run lint
 
 **Go tests** (date extraction logic):
 ```powershell
-cd sharecenter-go
+cd filestation-go
 go test ./internal/scan -v
 ```
 
@@ -73,7 +73,7 @@ go test ./internal/scan -v
 
 ## Architecture
 
-### Backend (`sharecenter-go/`)
+### Backend (`filestation-go/`)
 
 | Module | Responsibility |
 |---|---|

@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"sharecenter/internal/db"
+	"filestation/internal/db"
 )
 
 const (

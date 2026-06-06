@@ -1,4 +1,4 @@
-const DB_NAME = 'sharecenter'
+const DB_NAME = 'filestation'
 const STORE = 'kv'
 
 function openDB(): Promise<IDBDatabase> {

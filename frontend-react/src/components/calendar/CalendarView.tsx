@@ -20,12 +20,12 @@ function firstDayOfMonth(year: number, month: number, startMonday: boolean) {
 const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
 
 function saveCalMonth(year: number, month: number) {
-  localStorage.setItem('sc_calMonth', `${year}-${month}`)
+  localStorage.setItem('fs_calMonth', `${year}-${month}`)
 }
 
 function loadCalMonth(): { year: number; month: number } {
   const today = new Date()
-  const raw = localStorage.getItem('sc_calMonth')
+  const raw = localStorage.getItem('fs_calMonth')
   if (raw) {
     const [y, m] = raw.split('-').map(Number)
     if (!isNaN(y) && !isNaN(m)) return { year: y, month: m }

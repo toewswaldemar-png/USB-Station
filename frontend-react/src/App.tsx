@@ -11,7 +11,7 @@ import CalendarView from '@/components/calendar/CalendarView'
 import ExplorerView from '@/components/explorer/ExplorerView'
 import SettingsView from '@/components/settings/SettingsView'
 
-const ACTIVE_TAB_KEY = 'sc_activeTab'
+const ACTIVE_TAB_KEY = 'fs_activeTab'
 
 function ErrorFallback({ error }: { error: unknown }) {
   return <p className="text-red-600 p-4">Fehler beim Laden: {String(error)}</p>

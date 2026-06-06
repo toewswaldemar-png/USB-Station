@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"sharecenter/internal/config"
-	"sharecenter/internal/db"
-	"sharecenter/internal/scan"
-	"sharecenter/internal/sse"
-	"sharecenter/internal/usb"
-	"sharecenter/internal/verse"
-	"sharecenter/internal/webdav"
+	"filestation/internal/config"
+	"filestation/internal/db"
+	"filestation/internal/scan"
+	"filestation/internal/sse"
+	"filestation/internal/usb"
+	"filestation/internal/verse"
+	"filestation/internal/webdav"
 )
 
 var hub *sse.Hub
