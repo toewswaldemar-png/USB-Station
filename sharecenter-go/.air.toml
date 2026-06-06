@@ -1,0 +1,14 @@
+[build]
+  cmd = "go build -o tmp/server.exe ./cmd/server"
+  bin = "tmp/server.exe"
+  full_bin = "tmp/server.exe"
+  include_ext = ["go"]
+  exclude_dir = ["webembed/web", "tmp", "vendor"]
+  delay = 500
+  kill_delay = "1s"
+
+[log]
+  time = true
+
+[misc]
+  clean_on_exit = true

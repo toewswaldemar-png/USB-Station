@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+:root {
+  --accent: #7c3aed;
+  --accent-l: #ede9fe;
+  --accent-xl: #f5f3ff;
+  --font-family: system-ui, 'Segoe UI', sans-serif;
+  --font-size-content: 14px;
+  --font-size-header: 15px;
+}
+
+* {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+input, textarea {
+  user-select: text;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-content);
+  background: #f8f8f9;
+  color: #1a1a2e;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Kalender-Animationen */
+@keyframes cal-sanft-in   { from { opacity: 0.2; transform: scale(0.97) } to { opacity: 1; transform: none } }
+@keyframes cal-fade-in    { from { opacity: 0 } to { opacity: 1 } }
+@keyframes cal-slide-in   { from { transform: translateY(-8px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes cal-flip-in    { from { transform: rotateX(-90deg); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes cal-wipe-in    { from { clip-path: inset(0 100% 0 0) } to { clip-path: inset(0 0% 0 0) } }
+@keyframes cal-roll-in    { from { transform: translateY(-100%) rotate(-10deg); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes cal-bounce-in  { 0% { transform: scale(0.5); opacity: 0 } 70% { transform: scale(1.05) } 100% { transform: scale(1); opacity: 1 } }
+
+.cal-anim-sanft  { animation: cal-sanft-in  var(--cal-dur, 0.3s) ease both }
+.cal-anim-fade   { animation: cal-fade-in   var(--cal-dur, 0.3s) ease both }
+.cal-anim-slide  { animation: cal-slide-in  var(--cal-dur, 0.3s) ease both }
+.cal-anim-flip   { animation: cal-flip-in   var(--cal-dur, 0.3s) ease both }
+.cal-anim-wipe   { animation: cal-wipe-in   var(--cal-dur, 0.3s) ease both }
+.cal-anim-roll   { animation: cal-roll-in   var(--cal-dur, 0.3s) ease both }
+.cal-anim-bounce { animation: cal-bounce-in var(--cal-dur, 0.3s) ease both }
+
+/* Kalender-Monatswechsel */
+@keyframes cal-month-next { from { transform: translateX(40px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes cal-month-prev { from { transform: translateX(-40px); opacity: 0 } to { transform: none; opacity: 1 } }
+.cal-month-next { animation: cal-month-next var(--cal-dur, 0.25s) ease both }
+.cal-month-prev { animation: cal-month-prev var(--cal-dur, 0.25s) ease both }
+
+/* Rubber-Band-Auswahl */
+.rubber-band {
+  position: fixed;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  pointer-events: none;
+  z-index: 9999;
+}
