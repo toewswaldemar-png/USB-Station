@@ -95,7 +95,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const [scanProgress, setScanProgress] = useState<{ pct: number; done: number; total: number } | null>(null)
   const [scanDoneCount, setScanDoneCount] = useState(0)
   const scanStarted = useRef(false)
-  const doneTimer = useRef<ReturnType<typeof setTimeout>>()
+  const doneTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(doneTimer.current), [])
 
   useEffect(() => {

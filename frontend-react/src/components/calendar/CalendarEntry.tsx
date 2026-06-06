@@ -14,7 +14,7 @@ interface Props {
   onClick: () => void
 }
 
-export default function CalendarEntry({ label, files, status, size, compact, bold, animClass, animDur, onClick }: Props) {
+export default function CalendarEntry({ label, files, status, size, bold, animClass, animDur, onClick }: Props) {
   const DATE_RE = /^(\d{4}-\d{2}-\d{2}|\d{8}|\d{1,2}\.\d{1,2}\.\d{4})\s*/
   const displayLabel = label.replace(DATE_RE, '').replace(DATE_RE, '').trim() || label
 

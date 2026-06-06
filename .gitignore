@@ -6,7 +6,7 @@ _build/Server/server.log
 
 # Build-Artefakte
 _build/Server/filestation.exe
-_build/CopyCenter/copycenter.exe
+_build/Client/fileclient.exe
 
 # Go Dev (air)
 filestation-go/config.json

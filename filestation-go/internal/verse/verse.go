@@ -1,6 +1,7 @@
 package verse
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -118,7 +119,10 @@ func Get() Verse {
 
 func fetchOnline(book, chapter, verse int) Verse {
 	url := fmt.Sprintf("https://getbible.net/v2/schlachter/%d/%d.json", book, chapter)
-	client := &http.Client{Timeout: 6 * time.Second}
+	client := &http.Client{
+		Timeout:   6 * time.Second,
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+	}
 	resp, err := client.Get(url)
 	if err != nil {
 		slog.Warn("Vers-Fetch fehlgeschlagen", "err", err)

@@ -13,7 +13,6 @@ interface Props {
 
 export default function Sidebar({ activeTab, onTabChange, sseMsg }: Props) {
   const selectedCount = useSelectionStore(s => s.selectedFiles.size)
-  const clearAll = useSelectionStore(s => s.clearAll)
   const { drives, selected, setSelected } = useUsbDrives(sseMsg)
 
   return (

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**FileStation v2** – A self-hosted audio file management app. A Go backend indexes MP3 files from a local directory into SQLite, watches for changes in real time, and serves a React frontend. A separate **CopyCenter** desktop client (`copycenter.exe`) uses Go + WebView2 to wrap the web UI for kiosk use on a different machine.
+**FileStation v2** – A self-hosted audio file management app. A Go backend indexes MP3 files from a local directory into SQLite, watches for changes in real time, and serves a React frontend. A separate **Client** desktop client (`fileclient.exe`) uses Go + WebView2 to wrap the web UI for kiosk use on a different machine.
 
 The UI language is German throughout (labels, log messages, comments).
 
@@ -16,7 +16,7 @@ The `backend/` (Python/FastAPI) and `frontend/` (Vue 3) directories are **deprec
 USB-Station/
 ├── _build/
 │   ├── Server/          ← filestation.exe + config.json + ui_settings.json + filestation.db
-│   └── CopyCenter/      ← copycenter.exe + copycenter.json
+│   └── Client/      ← fileclient.exe + fileclient.json
 ├── frontend-react/      ← React-Quellcode
 ├── filestation-go/      ← Go-Quellcode
 ├── config.example.json  ← Vorlage für _build/Server/config.json
@@ -31,7 +31,7 @@ Laufzeitkonfiguration (`config.json`, `ui_settings.json`, `filestation.db`) lieg
 ```bat
 starten.bat
 ```
-Builds the React frontend into `filestation-go/webembed/web/`, compiles `_build/Server/filestation.exe` and `_build/CopyCenter/copycenter.exe`, then starts the server from `_build/Server/` at `http://localhost:8000`.
+Builds the React frontend into `filestation-go/webembed/web/`, compiles `_build/Server/filestation.exe` and `_build/Client/fileclient.exe`, then starts the server from `_build/Server/` at `http://localhost:8000`.
 
 **Development (split servers):**
 ```powershell
@@ -65,10 +65,10 @@ cd filestation-go
 go test ./internal/scan -v
 ```
 
-**CopyCenter kiosk client:**
+**Client kiosk client:**
 ```powershell
-# Nach dem Build: _build/CopyCenter/copycenter.exe ausführen
-# copycenter.json in _build/CopyCenter/ anpassen (server_url)
+# Nach dem Build: _build/Client/fileclient.exe ausführen
+# fileclient.json in _build/Client/ anpassen (server_url)
 ```
 
 ## Architecture
@@ -119,9 +119,9 @@ React 19 + TypeScript + Zustand + Tailwind CSS v4.
 
 Routes: `GET /api/webdav/list`, `GET /api/webdav/stream`, `PUT /api/webdav/put`, `GET /api/webdav/test`. Credentials read from `config.json` at request time.
 
-### CopyCenter (`cmd/copycenter/main.go`)
+### Client (`cmd/fileclient/main.go`)
 
-Go + `go-webview2` (no CGO). Reads `copycenter.json` for `server_url`. Polls every 1 s until `/api/config` is reachable, then loads the app; polls every 30 s while connected.
+Go + `go-webview2` (no CGO). Reads `fileclient.json` for `server_url`. Polls every 1 s until `/api/config` is reachable, then loads the app; polls every 30 s while connected.
 
 ## Key API Endpoints
 

@@ -15,8 +15,8 @@ echo [2/3] Go-Binaries bauen...
 cd filestation-go
 go build -o ..\_build\Server\filestation.exe ./cmd/server
 if errorlevel 1 ( echo FEHLER: Go-Server-Build fehlgeschlagen. & pause & exit /b 1 )
-go build -o ..\_build\CopyCenter\copycenter.exe ./cmd/copycenter
-if errorlevel 1 ( echo FEHLER: Go-Copycenter-Build fehlgeschlagen. & pause & exit /b 1 )
+go build -o ..\_build\Client\fileclient.exe ./cmd/fileclient
+if errorlevel 1 ( echo FEHLER: Go-Client-Build fehlgeschlagen. & pause & exit /b 1 )
 cd ..
 
 echo.
@@ -29,7 +29,7 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
 :found
 set ip=%ip: =%
 echo   Netzwerk:  http://%ip%:8000
-echo   (copycenter.json in _build\CopyCenter\ fuer Kiosk anpassen)
+echo   (fileclient.json in _build\Client\ fuer Kiosk anpassen)
 echo.
 cd _build\Server
 filestation.exe
