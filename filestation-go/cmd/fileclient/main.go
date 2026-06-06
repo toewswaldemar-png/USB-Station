@@ -40,6 +40,14 @@ func main() {
 	w.SetSize(1280, 820, webview.HintNone)
 	w.Navigate("about:blank")
 
+	w.Bind("fsClientExit", func() error {
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			os.Exit(0)
+		}()
+		return nil
+	})
+
 	go monitor(w, serverURL)
 
 	w.Run()

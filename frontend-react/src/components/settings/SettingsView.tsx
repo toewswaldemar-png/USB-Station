@@ -324,6 +324,34 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
             )}
           </Card>
 
+          {/* FileStation Client */}
+          <Card title="FileStation Client">
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (document.fullscreenElement) document.exitFullscreen()
+                  else document.documentElement.requestFullscreen()
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+              >
+                {document.fullscreenElement ? 'Fenster' : 'Vollbild'}
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+              >
+                Reload
+              </button>
+              <button
+                onClick={() => { (window as any).fsClientExit?.() ?? window.close() }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
+                style={{ background: 'var(--accent)' }}
+              >
+                Beenden
+              </button>
+            </div>
+          </Card>
+
         </div>
       </div>
     </div>
