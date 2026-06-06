@@ -81,6 +81,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 const inputCls = 'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:border-transparent'
 const selectCls = 'rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:border-transparent'
 
+const isKiosk = !!(window as any).fsClientExit
+
 export default function SettingsView({ onClose, sseMsg }: { onClose: () => void; sseMsg: { data: string } }) {
   const { settings, update } = useUISettingsStore()
   const { config, save: saveConfig } = useConfigStore()
@@ -174,170 +176,162 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
 
         <div className="px-5 py-5 space-y-4">
 
-          {/* Allgemein */}
-          <Card title="Allgemein">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-400">App-Name</label>
-              <input
-                className={inputCls}
-                style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
-                value={settings.appName}
-                onChange={e => update({ appName: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-400">Schriftart</label>
-              <select
-                className={`${selectCls} w-full`}
-                style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
-                value={settings.fontFamily}
-                onChange={e => update({ fontFamily: e.target.value })}
-              >
-                {FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f.split(',')[0].replace(/"/g, '')}</option>)}
-              </select>
-            </div>
-          </Card>
+          {/* Admin-Einstellungen – nur im Browser sichtbar */}
+          {!isKiosk && <>
+            <Card title="Allgemein">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-400">App-Name</label>
+                <input
+                  className={inputCls}
+                  style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
+                  value={settings.appName}
+                  onChange={e => update({ appName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-400">Schriftart</label>
+                <select
+                  className={`${selectCls} w-full`}
+                  style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
+                  value={settings.fontFamily}
+                  onChange={e => update({ fontFamily: e.target.value })}
+                >
+                  {FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f.split(',')[0].replace(/"/g, '')}</option>)}
+                </select>
+              </div>
+            </Card>
 
-          {/* Akzentfarbe */}
-          <Card title="Akzentfarbe">
-            <div className="flex justify-between">
-              {COLOR_PRESETS.map((p, i) => (
+            <Card title="Akzentfarbe">
+              <div className="flex justify-between">
+                {COLOR_PRESETS.map((p, i) => (
+                  <button
+                    key={p.name}
+                    onClick={() => update({ colorPreset: i })}
+                    className={`w-9 h-9 rounded-full transition-all ${settings.colorPreset === i ? 'scale-110 ring-2 ring-offset-2' : 'hover:scale-105'}`}
+                    style={{ background: p.accent, '--tw-ring-color': p.accent } as React.CSSProperties}
+                    title={p.name}
+                  />
+                ))}
+              </div>
+            </Card>
+
+            <Card title="Kalender">
+              <Field label="Heute-Stil">
+                <Seg
+                  value={settings.todayStyle}
+                  options={[{ label: 'Ring', value: 'ring' }, { label: 'Gefüllt', value: 'filled' }, { label: 'Zelle', value: 'cell' }]}
+                  onChange={v => update({ todayStyle: v as 'ring' | 'filled' | 'cell' })}
+                />
+              </Field>
+              <Field label="Eintraggröße">
+                <Seg
+                  value={settings.entrySize}
+                  options={[{ label: 'Klein', value: 'sm' }, { label: 'Mittel', value: 'md' }, { label: 'Groß', value: 'lg' }]}
+                  onChange={v => update({ entrySize: v as 'sm' | 'md' | 'lg' })}
+                />
+              </Field>
+              <Field label="Animation">
+                <Seg
+                  value={settings.calAnimation}
+                  options={[
+                    { label: 'Sanft', value: 'sanft' },
+                    { label: 'Fade', value: 'fade' },
+                    { label: 'Slide', value: 'slide' },
+                  ]}
+                  onChange={v => update({ calAnimation: v as typeof settings.calAnimation })}
+                />
+              </Field>
+              <Field label="Geschwindigkeit">
+                <Seg
+                  value={settings.calAnimSpeed}
+                  options={[{ label: 'Langsam', value: 'slow' }, { label: 'Normal', value: 'normal' }, { label: 'Schnell', value: 'fast' }]}
+                  onChange={v => update({ calAnimSpeed: v as 'slow' | 'normal' | 'fast' })}
+                />
+              </Field>
+              <Field label="Wisch-Schwelle">
+                <Seg
+                  value={String(settings.swipeThreshold)}
+                  options={[{ label: 'Kurz', value: '30' }, { label: 'Mittel', value: '60' }, { label: 'Weit', value: '90' }]}
+                  onChange={v => update({ swipeThreshold: Number(v) })}
+                />
+              </Field>
+              <ToggleField label="AM/PM-Aufteilung" checked={settings.amPmSplit} onChange={v => update({ amPmSplit: v })} />
+            </Card>
+
+            <Card title="Audioverzeichnis">
+              <div className="flex gap-2">
+                <input
+                  className={`${inputCls} flex-1`}
+                  value={audioPath}
+                  onChange={e => setAudioPath(e.target.value)}
+                  placeholder="/pfad/zu/audio"
+                />
                 <button
-                  key={p.name}
-                  onClick={() => update({ colorPreset: i })}
-                  className={`w-9 h-9 rounded-full transition-all ${settings.colorPreset === i ? 'scale-110 ring-2 ring-offset-2' : 'hover:scale-105'}`}
-                  style={{ background: p.accent, '--tw-ring-color': p.accent } as React.CSSProperties}
-                  title={p.name}
-                />
-              ))}
-            </div>
-          </Card>
-
-          {/* Kalender */}
-          <Card title="Kalender">
-            <Field label="Heute-Stil">
-              <Seg
-                value={settings.todayStyle}
-                options={[{ label: 'Ring', value: 'ring' }, { label: 'Gefüllt', value: 'filled' }, { label: 'Zelle', value: 'cell' }]}
-                onChange={v => update({ todayStyle: v as 'ring' | 'filled' | 'cell' })}
-              />
-            </Field>
-            <Field label="Eintraggröße">
-              <Seg
-                value={settings.entrySize}
-                options={[{ label: 'Klein', value: 'sm' }, { label: 'Mittel', value: 'md' }, { label: 'Groß', value: 'lg' }]}
-                onChange={v => update({ entrySize: v as 'sm' | 'md' | 'lg' })}
-              />
-            </Field>
-            <Field label="Animation">
-              <Seg
-                value={settings.calAnimation}
-                options={[
-                  { label: 'Sanft', value: 'sanft' },
-                  { label: 'Fade', value: 'fade' },
-                  { label: 'Slide', value: 'slide' },
-                ]}
-                onChange={v => update({ calAnimation: v as typeof settings.calAnimation })}
-              />
-            </Field>
-            <Field label="Geschwindigkeit">
-              <Seg
-                value={settings.calAnimSpeed}
-                options={[{ label: 'Langsam', value: 'slow' }, { label: 'Normal', value: 'normal' }, { label: 'Schnell', value: 'fast' }]}
-                onChange={v => update({ calAnimSpeed: v as 'slow' | 'normal' | 'fast' })}
-              />
-            </Field>
-            <Field label="Wisch-Schwelle">
-              <Seg
-                value={String(settings.swipeThreshold)}
-                options={[{ label: 'Kurz', value: '30' }, { label: 'Mittel', value: '60' }, { label: 'Weit', value: '90' }]}
-                onChange={v => update({ swipeThreshold: Number(v) })}
-              />
-            </Field>
-            <ToggleField label="AM/PM-Aufteilung" checked={settings.amPmSplit} onChange={v => update({ amPmSplit: v })} />
-          </Card>
-
-          {/* Audioverzeichnis */}
-          <Card title="Audioverzeichnis">
-            <div className="flex gap-2">
-              <input
-                className={`${inputCls} flex-1`}
-                value={audioPath}
-                onChange={e => setAudioPath(e.target.value)}
-                placeholder="/pfad/zu/audio"
-              />
+                  onClick={pickFolder}
+                  className="px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  Wählen
+                </button>
+              </div>
               <button
-                onClick={pickFolder}
-                className="px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Wählen
-              </button>
-            </div>
-            <button
-              onClick={startScan}
-              disabled={scanPhase !== 'idle'}
-              className={`relative w-full py-2.5 rounded-xl text-sm font-semibold text-white overflow-hidden${scanPhase === 'running' && !scanProgress ? ' animate-pulse' : ''}`}
-              style={{ background: 'var(--accent)' }}
-            >
-              {/* Dunkle Maske auf dem noch nicht abgearbeiteten Teil */}
-              {scanPhase === 'running' && scanProgress && (
-                <div
-                  className="absolute inset-y-0 right-0 rounded-r-xl"
-                  style={{ width: `${100 - scanProgress.pct}%`, background: 'rgba(0,0,0,0.25)', transition: 'width 0.3s ease' }}
-                />
-              )}
-              <span className="relative z-10 select-none">
-                {scanPhase === 'idle' && 'Scannen'}
-                {scanPhase === 'running' && !scanProgress && 'Scannt…'}
-                {scanPhase === 'running' && scanProgress && `${scanProgress.done} / ${scanProgress.total}`}
-                {scanPhase === 'done' && `✓ ${scanDoneCount} Datei${scanDoneCount !== 1 ? 'en' : ''}`}
-              </span>
-            </button>
-          </Card>
-
-          {/* WebDAV */}
-          <Card title="WebDAV / Cloud">
-            <input className={inputCls} value={webdavUrl}
-              onChange={e => setWebdavUrl(e.target.value)} placeholder="https://cloud.example.com/dav" />
-            <input className={inputCls} value={webdavUser}
-              onChange={e => setWebdavUser(e.target.value)} placeholder="Benutzer" />
-            <input type="password" className={inputCls} value={webdavPw}
-              onChange={e => setWebdavPw(e.target.value)} placeholder="Passwort" />
-            <div className="flex gap-2">
-              <button
-                onClick={() => saveConfig({ webdav_url: webdavUrl, webdav_user: webdavUser, webdav_password: webdavPw })}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Speichern
-              </button>
-              <button
-                onClick={testWebDav}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
+                onClick={startScan}
+                disabled={scanPhase !== 'idle'}
+                className={`relative w-full py-2.5 rounded-xl text-sm font-semibold text-white overflow-hidden${scanPhase === 'running' && !scanProgress ? ' animate-pulse' : ''}`}
                 style={{ background: 'var(--accent)' }}
               >
-                Verbindung testen
+                {scanPhase === 'running' && scanProgress && (
+                  <div
+                    className="absolute inset-y-0 right-0 rounded-r-xl"
+                    style={{ width: `${100 - scanProgress.pct}%`, background: 'rgba(0,0,0,0.25)', transition: 'width 0.3s ease' }}
+                  />
+                )}
+                <span className="relative z-10 select-none">
+                  {scanPhase === 'idle' && 'Scannen'}
+                  {scanPhase === 'running' && !scanProgress && 'Scannt…'}
+                  {scanPhase === 'running' && scanProgress && `${scanProgress.done} / ${scanProgress.total}`}
+                  {scanPhase === 'done' && `✓ ${scanDoneCount} Datei${scanDoneCount !== 1 ? 'en' : ''}`}
+                </span>
               </button>
-            </div>
-            {webdavStatus && (
-              <p className={`text-xs font-medium ${webdavStatus.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
-                {webdavStatus}
-              </p>
-            )}
-          </Card>
+            </Card>
 
-          {/* FileStation Client */}
-          <Card title="FileStation Client">
+            <Card title="WebDAV / Cloud">
+              <input className={inputCls} value={webdavUrl}
+                onChange={e => setWebdavUrl(e.target.value)} placeholder="https://cloud.example.com/dav" />
+              <input className={inputCls} value={webdavUser}
+                onChange={e => setWebdavUser(e.target.value)} placeholder="Benutzer" />
+              <input type="password" className={inputCls} value={webdavPw}
+                onChange={e => setWebdavPw(e.target.value)} placeholder="Passwort" />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => saveConfig({ webdav_url: webdavUrl, webdav_user: webdavUser, webdav_password: webdavPw })}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  Speichern
+                </button>
+                <button
+                  onClick={testWebDav}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  Verbindung testen
+                </button>
+              </div>
+              {webdavStatus && (
+                <p className={`text-xs font-medium ${webdavStatus.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
+                  {webdavStatus}
+                </p>
+              )}
+            </Card>
+          </>}
+
+          {/* FileStation Client – nur im Kiosk (WebView2) sichtbar */}
+          {isKiosk && <Card title="FileStation Client">
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   const next = !isFs
                   setIsFs(next)
-                  if ((window as any).fsClientFullscreen) {
-                    ;(window as any).fsClientFullscreen(next)
-                  } else {
-                    if (next) document.documentElement.requestFullscreen?.()
-                    else document.exitFullscreen?.()
-                  }
+                  ;(window as any).fsClientFullscreen?.(next)
                 }}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
               >
@@ -350,14 +344,14 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 Reload
               </button>
               <button
-                onClick={() => { (window as any).fsClientExit?.() ?? window.close() }}
+                onClick={() => { (window as any).fsClientExit?.() }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
                 style={{ background: 'var(--accent)' }}
               >
                 Beenden
               </button>
             </div>
-          </Card>
+          </Card>}
 
         </div>
       </div>

@@ -5,8 +5,6 @@ import { useUISettingsStore } from '@/stores/uiSettingsStore'
 
 interface Verse { text: string; ref: string }
 
-const isKiosk = !!(window as any).fsClientExit
-
 export default function Header({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { time, date } = useClock()
   const appName = useUISettingsStore(s => s.settings.appName)
@@ -39,15 +37,13 @@ export default function Header({ onOpenSettings }: { onOpenSettings: () => void 
           <span className="opacity-40">|</span>
           <span className="opacity-80">{date}</span>
         </div>
-        {!isKiosk && (
-          <button
-            onClick={onOpenSettings}
-            className="p-1.5 rounded hover:bg-white/20 transition-colors"
-            title="Einstellungen"
-          >
-            <Settings size={18} />
-          </button>
-        )}
+        <button
+          onClick={onOpenSettings}
+          className="p-1.5 rounded hover:bg-white/20 transition-colors"
+          title="Einstellungen"
+        >
+          <Settings size={18} />
+        </button>
       </div>
     </header>
   )
