@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -110,21 +112,8 @@ func main() {
 	w.SetSize(1280, 820, webview.HintNone)
 	w.Navigate("about:blank")
 
-	w.Bind("fsClientExit", func() error {
-		go func() {
-			time.Sleep(100 * time.Millisecond)
-			os.Exit(0)
-		}()
-		return nil
-	})
-
-	w.Bind("fsClientFullscreen", func() error {
-		hwnd := uintptr(w.Window())
-		w.Dispatch(func() { setFullscreen(hwnd, !fsActive) })
-		return nil
-	})
-
 	go monitor(w, serverURL)
+	go listenCommands(w, serverURL)
 
 	w.Run()
 }
@@ -152,5 +141,43 @@ func monitor(w webview.WebView, serverURL string) {
 		} else {
 			time.Sleep(time.Second)
 		}
+	}
+}
+
+// listenCommands connects to the server SSE stream and executes client:*
+// commands directly in Go — no JavaScript binding timing issues.
+func listenCommands(w webview.WebView, serverURL string) {
+	hwnd := uintptr(w.Window())
+	client := &http.Client{} // no timeout — SSE is long-lived
+
+	for {
+		resp, err := client.Get(serverURL + "/api/events")
+		if err != nil {
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		scanner := bufio.NewScanner(resp.Body)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+			data := strings.TrimPrefix(line, "data: ")
+			switch data {
+			case "client:fullscreen":
+				w.Dispatch(func() { setFullscreen(hwnd, !fsActive) })
+			case "client:reload":
+				w.Dispatch(func() { w.Navigate(serverURL + "?kiosk=1") })
+			case "client:exit":
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+					os.Exit(0)
+				}()
+			}
+		}
+		resp.Body.Close()
+		slog.Warn("SSE-Verbindung unterbrochen, reconnect…")
+		time.Sleep(3 * time.Second)
 	}
 }
