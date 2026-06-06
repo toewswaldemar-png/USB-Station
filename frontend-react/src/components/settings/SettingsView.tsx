@@ -85,7 +85,6 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const { settings, update } = useUISettingsStore()
   const { config, save: saveConfig } = useConfigStore()
   const refreshFiles = useFilesStore(s => s.refreshFiles)
-  const [isFs, setIsFs] = useState(false)
   const [audioPath, setAudioPath] = useState(config.audio_path)
   const [webdavUrl, setWebdavUrl] = useState(config.webdav_url)
   const [webdavUser, setWebdavUser] = useState(config.webdav_user)
@@ -120,6 +119,14 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
       })
     }
   }, [sseMsg, refreshFiles])
+
+  async function clientCmd(cmd: string) {
+    await fetch('/api/client-command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd }),
+    })
+  }
 
   async function pickFolder() {
     const res = await fetch('/api/pick-folder')
@@ -322,23 +329,19 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
           <Card title="FileStation Client">
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  const next = !isFs
-                  setIsFs(next)
-                  ;(window as any).fsClientFullscreen?.(next)
-                }}
+                onClick={() => clientCmd('fullscreen')}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
               >
-                {isFs ? 'Fenster' : 'Vollbild'}
+                Vollbild
               </button>
               <button
-                onClick={() => window.location.reload()}
+                onClick={() => clientCmd('reload')}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
               >
                 Reload
               </button>
               <button
-                onClick={() => { (window as any).fsClientExit?.() }}
+                onClick={() => clientCmd('exit')}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
                 style={{ background: 'var(--accent)' }}
               >

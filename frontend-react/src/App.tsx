@@ -40,6 +40,12 @@ export default function App() {
         if (!loading && allFiles.length === 0) refreshFiles()
       }, 500)
     }
+    // Remote-Steuerung: nur im Kiosk ausführen
+    if (data.startsWith('client:') && (window as any).fsClientExit) {
+      if (data === 'client:fullscreen') (window as any).fsClientFullscreen?.()
+      else if (data === 'client:reload') window.location.reload()
+      else if (data === 'client:exit') (window as any).fsClientExit?.()
+    }
   })
 
   useEffect(() => {

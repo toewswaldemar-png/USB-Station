@@ -44,6 +44,7 @@ func Register(mux *http.ServeMux, h *sse.Hub) {
 	mux.HandleFunc("GET /api/config", GetConfig)
 	mux.HandleFunc("POST /api/config", PostConfig)
 	mux.HandleFunc("POST /api/auth", Auth)
+	mux.HandleFunc("POST /api/client-command", ClientCommand)
 	mux.HandleFunc("GET /api/webdav/list", WebDavList)
 	mux.HandleFunc("GET /api/webdav/stream", WebDavStream)
 	mux.HandleFunc("PUT /api/webdav/put", WebDavPut)
@@ -462,4 +463,23 @@ func StartUSBPoller() {
 			}
 		}
 	}()
+}
+
+// ── /api/client-command ───────────────────────────────────────────────────────
+
+func ClientCommand(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Cmd string `json:"cmd"`
+	}
+	if err := readBody(r, &req); err != nil || req.Cmd == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	switch req.Cmd {
+	case "fullscreen", "reload", "exit":
+		hub.Notify("client:" + req.Cmd)
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "unknown command", http.StatusBadRequest)
+	}
 }

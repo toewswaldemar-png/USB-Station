@@ -118,9 +118,9 @@ func main() {
 		return nil
 	})
 
-	w.Bind("fsClientFullscreen", func(enable bool) error {
+	w.Bind("fsClientFullscreen", func() error {
 		hwnd := uintptr(w.Window())
-		w.Dispatch(func() { setFullscreen(hwnd, enable) })
+		w.Dispatch(func() { setFullscreen(hwnd, !fsActive) })
 		return nil
 	})
 
