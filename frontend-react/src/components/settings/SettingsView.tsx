@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import { X, Maximize, RotateCcw, Power, AlertTriangle } from 'lucide-react'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useFilesStore } from '@/stores/filesStore'
@@ -85,6 +85,9 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const { settings, update } = useUISettingsStore()
   const { config, save: saveConfig } = useConfigStore()
   const refreshFiles = useFilesStore(s => s.refreshFiles)
+  const [exitConfirm, setExitConfirm] = useState(false)
+  const exitTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(exitTimer.current), [])
   const [audioPath, setAudioPath] = useState(config.audio_path)
   const [webdavUrl, setWebdavUrl] = useState(config.webdav_url)
   const [webdavUser, setWebdavUser] = useState(config.webdav_user)
@@ -330,22 +333,33 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
             <div className="flex gap-2">
               <button
                 onClick={() => clientCmd('fullscreen')}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
               >
-                Vollbild
+                <Maximize size={15} /> Vollbild
               </button>
               <button
                 onClick={() => clientCmd('reload')}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
               >
-                Reload
+                <RotateCcw size={15} /> Reload
               </button>
               <button
-                onClick={() => clientCmd('exit')}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
-                style={{ background: 'var(--accent)' }}
+                onClick={() => {
+                  if (exitConfirm) {
+                    clearTimeout(exitTimer.current)
+                    setExitConfirm(false)
+                    clientCmd('exit')
+                  } else {
+                    setExitConfirm(true)
+                    exitTimer.current = setTimeout(() => setExitConfirm(false), 3000)
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-1.5"
+                style={{ background: exitConfirm ? '#ef4444' : 'var(--accent)' }}
               >
-                Beenden
+                {exitConfirm
+                  ? <><AlertTriangle size={15} /> Sicher?</>
+                  : <><Power size={15} /> Beenden</>}
               </button>
             </div>
           </Card>
