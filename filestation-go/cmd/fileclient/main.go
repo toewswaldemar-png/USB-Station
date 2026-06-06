@@ -5,7 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"syscall"
 	"time"
+	"unsafe"
 
 	webview "github.com/jchv/go-webview2"
 )
@@ -24,6 +26,74 @@ func loadServerURL() string {
 		return "http://localhost:8000"
 	}
 	return c.ServerURL
+}
+
+var (
+	user32               = syscall.NewLazyDLL("user32.dll")
+	procGetWindowLongPtr = user32.NewProc("GetWindowLongPtrW")
+	procSetWindowLongPtr = user32.NewProc("SetWindowLongPtrW")
+	procGetWindowRect    = user32.NewProc("GetWindowRect")
+	procSetWindowPos     = user32.NewProc("SetWindowPos")
+	procMonitorFromWin   = user32.NewProc("MonitorFromWindow")
+	procGetMonitorInfo   = user32.NewProc("GetMonitorInfoW")
+)
+
+const (
+	gwlStyle              = uintptr(0xFFFFFFF0) // GWL_STYLE = -16
+	wsOverlappedWindow    = uintptr(0x00CF0000)
+	swpNoOwnerZOrder      = uintptr(0x0200)
+	swpFrameChanged       = uintptr(0x0020)
+	swpNoZOrder           = uintptr(0x0004)
+	monitorDefaultNearest = uintptr(2)
+)
+
+type winRect struct{ Left, Top, Right, Bottom int32 }
+
+type monitorInfo struct {
+	Size      uint32
+	Flags     uint32
+	RcMonitor winRect
+	RcWork    winRect
+}
+
+var (
+	fsActive     bool
+	fsSavedStyle uintptr
+	fsSavedRect  winRect
+)
+
+func setFullscreen(hwnd uintptr, enable bool) {
+	if enable && !fsActive {
+		style, _, _ := procGetWindowLongPtr.Call(hwnd, gwlStyle)
+		fsSavedStyle = style
+		procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&fsSavedRect)))
+
+		hMon, _, _ := procMonitorFromWin.Call(hwnd, monitorDefaultNearest)
+		var mi monitorInfo
+		mi.Size = uint32(unsafe.Sizeof(mi))
+		procGetMonitorInfo.Call(hMon, uintptr(unsafe.Pointer(&mi)))
+
+		procSetWindowLongPtr.Call(hwnd, gwlStyle, style&^wsOverlappedWindow)
+
+		r := mi.RcMonitor
+		procSetWindowPos.Call(
+			hwnd, 0,
+			uintptr(r.Left), uintptr(r.Top),
+			uintptr(r.Right-r.Left), uintptr(r.Bottom-r.Top),
+			swpNoOwnerZOrder|swpFrameChanged,
+		)
+		fsActive = true
+	} else if !enable && fsActive {
+		procSetWindowLongPtr.Call(hwnd, gwlStyle, fsSavedStyle)
+		r := fsSavedRect
+		procSetWindowPos.Call(
+			hwnd, 0,
+			uintptr(r.Left), uintptr(r.Top),
+			uintptr(r.Right-r.Left), uintptr(r.Bottom-r.Top),
+			swpNoOwnerZOrder|swpFrameChanged|swpNoZOrder,
+		)
+		fsActive = false
+	}
 }
 
 func main() {
@@ -45,6 +115,12 @@ func main() {
 			time.Sleep(100 * time.Millisecond)
 			os.Exit(0)
 		}()
+		return nil
+	})
+
+	w.Bind("fsClientFullscreen", func(enable bool) error {
+		hwnd := uintptr(w.Window())
+		w.Dispatch(func() { setFullscreen(hwnd, enable) })
 		return nil
 	})
 

@@ -85,6 +85,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const { settings, update } = useUISettingsStore()
   const { config, save: saveConfig } = useConfigStore()
   const refreshFiles = useFilesStore(s => s.refreshFiles)
+  const [isFs, setIsFs] = useState(false)
   const [audioPath, setAudioPath] = useState(config.audio_path)
   const [webdavUrl, setWebdavUrl] = useState(config.webdav_url)
   const [webdavUser, setWebdavUser] = useState(config.webdav_user)
@@ -329,12 +330,18 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                  if (document.fullscreenElement) document.exitFullscreen()
-                  else document.documentElement.requestFullscreen()
+                  const next = !isFs
+                  setIsFs(next)
+                  if ((window as any).fsClientFullscreen) {
+                    ;(window as any).fsClientFullscreen(next)
+                  } else {
+                    if (next) document.documentElement.requestFullscreen?.()
+                    else document.exitFullscreen?.()
+                  }
                 }}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
               >
-                {document.fullscreenElement ? 'Fenster' : 'Vollbild'}
+                {isFs ? 'Fenster' : 'Vollbild'}
               </button>
               <button
                 onClick={() => window.location.reload()}
