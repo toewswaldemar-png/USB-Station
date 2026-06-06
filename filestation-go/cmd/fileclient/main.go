@@ -138,7 +138,7 @@ func monitor(w webview.WebView, serverURL string) {
 		reachable := err == nil
 
 		if reachable && !connected {
-			w.Dispatch(func() { w.Navigate(serverURL) })
+			w.Dispatch(func() { w.Navigate(serverURL + "?kiosk=1") })
 			connected = true
 			slog.Info("Server erreichbar, App geladen", "url", serverURL)
 		} else if !reachable && connected {

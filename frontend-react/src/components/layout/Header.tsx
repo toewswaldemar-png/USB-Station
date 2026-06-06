@@ -37,7 +37,7 @@ export default function Header({ onOpenSettings }: { onOpenSettings: () => void 
           <span className="opacity-40">|</span>
           <span className="opacity-80">{date}</span>
         </div>
-        {!(window as any).fsClientExit && (
+        {!new URLSearchParams(window.location.search).has('kiosk') && (
           <button
             onClick={onOpenSettings}
             className="p-1.5 rounded hover:bg-white/20 transition-colors"
