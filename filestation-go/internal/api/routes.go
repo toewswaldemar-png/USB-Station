@@ -358,6 +358,7 @@ func PostUISettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	hub.Notify("ui_settings")
 	writeJSON(w, map[string]string{"status": "ok"})
 }
 

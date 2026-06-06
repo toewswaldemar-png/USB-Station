@@ -34,6 +34,7 @@ export default function App() {
   useSSE((data) => {
     setSseMsg({ data })
     if (data.startsWith('done:')) refreshFiles()
+    if (data === 'ui_settings') loadUI()
     if (data === 'connected') {
       setTimeout(() => {
         const { allFiles, loading } = useFilesStore.getState()
