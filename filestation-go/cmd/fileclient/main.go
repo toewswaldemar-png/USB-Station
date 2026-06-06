@@ -51,9 +51,9 @@ type winRect struct{ Left, Top, Right, Bottom int32 }
 
 type monitorInfo struct {
 	Size      uint32
-	Flags     uint32
 	RcMonitor winRect
 	RcWork    winRect
+	Flags     uint32
 }
 
 var (
