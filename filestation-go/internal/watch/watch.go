@@ -30,13 +30,10 @@ func Start(basePath string, notify scan.NotifyFunc) (*Watcher, error) {
 
 	watcher := &Watcher{base: filepath.Clean(basePath), w: w, notify: notify, done: make(chan struct{})}
 
-	// Alle Verzeichnisse initial hinzufügen
-	filepath.WalkDir(basePath, func(path string, d os.DirEntry, err error) error {
-		if err == nil && d.IsDir() {
-			w.Add(path)
-		}
-		return nil
-	})
+	// Nur Root überwachen (keine Unterordner) – verhindert, dass Windows
+	// Umbenennungen von Unterordnern blockiert (ReadDirectoryChangesW-Handle).
+	// Änderungen in Unterordnern erkennt der Reconcile-Loop.
+	w.Add(basePath)
 
 	go watcher.loop()
 	go watcher.reconcileLoop()
@@ -73,7 +70,6 @@ func (watcher *Watcher) handleEvent(event fsnotify.Event) {
 			return
 		}
 		if fi.IsDir() {
-			watcher.w.Add(path)
 			watcher.debounce(path+":dir", 1*time.Second, func() {
 				watcher.scanDir(path)
 				watcher.reconcile()
@@ -207,7 +203,7 @@ func (watcher *Watcher) reconcile() {
 }
 
 func (watcher *Watcher) reconcileLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {

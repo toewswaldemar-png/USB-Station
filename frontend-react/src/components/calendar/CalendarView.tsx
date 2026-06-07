@@ -86,19 +86,39 @@ export default function CalendarView() {
   const days = daysInMonth(year, month)
   const firstDay = firstDayOfMonth(year, month, true)
 
+  const prevMonth = month === 0 ? 11 : month - 1
+  const prevYear  = month === 0 ? year - 1 : year
+  const nextMonth = month === 11 ? 0 : month + 1
+  const nextYear  = month === 11 ? year + 1 : year
+  const daysInPrev = daysInMonth(prevYear, prevMonth)
+  const totalCells = Math.ceil((firstDay + days) / 7) * 7
+  const trailingDays = totalCells - firstDay - days
+
+  const prevYm = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}`
+  const nextYm = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}`
+  const prevGroupMap = filesByYearMonth.get(prevYm) ?? new Map<string, AudioFile[]>()
+  const nextGroupMap = filesByYearMonth.get(nextYm) ?? new Map<string, AudioFile[]>()
+
+  function buildByDay(gm: Map<string, AudioFile[]>) {
+    const m = new Map<number, Map<string, AudioFile[]>>()
+    for (const [key, files] of gm) {
+      for (const f of files) {
+        const d = parseInt(f.date.split('-')[2] || '0', 10)
+        if (!m.has(d)) m.set(d, new Map())
+        const g = m.get(d)!
+        if (!g.has(key)) g.set(key, [])
+        g.get(key)!.push(f)
+      }
+    }
+    return m
+  }
+  const byDayPrev = buildByDay(prevGroupMap)
+  const byDayNext = buildByDay(nextGroupMap)
+
   const DAY_LABELS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag']
   const WEEKEND_COLS = [5, 6]
 
-  const byDay = new Map<number, Map<string, AudioFile[]>>()
-  for (const [key, files] of groupMap) {
-    for (const f of files) {
-      const d = parseInt(f.date.split('-')[2] || '0', 10)
-      if (!byDay.has(d)) byDay.set(d, new Map())
-      const g = byDay.get(d)!
-      if (!g.has(key)) g.set(key, [])
-      g.get(key)!.push(f)
-    }
-  }
+  const byDay = buildByDay(groupMap)
 
   const SPEED_MS: Record<string, string> = { slow: '0.6s', normal: '0.3s', fast: '0.15s' }
   const monthAnimDur = SPEED_MS[settings.calAnimSpeed] ?? '0.3s'
@@ -125,7 +145,7 @@ export default function CalendarView() {
         <div className="flex items-center gap-2">
           <button
             onClick={goPrev}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-violet-600 active:scale-95 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md active:scale-95 transition-all hover:text-[var(--accent)]"
           >
             <ChevronLeft size={18} />
           </button>
@@ -134,7 +154,7 @@ export default function CalendarView() {
             <button
               onMouseDown={e => e.stopPropagation()}
               onClick={() => setPickerOpen(p => !p)}
-              className="text-2xl font-bold text-gray-800 hover:text-violet-600 transition-colors px-2 w-52 text-center"
+              className="text-2xl font-bold px-2 w-52 text-center text-gray-800 rounded-lg active:scale-95 transition-all hover:text-[var(--accent)]"
             >
               {MONTH_NAMES[month]} {year}
             </button>
@@ -149,14 +169,14 @@ export default function CalendarView() {
 
           <button
             onClick={goNext}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-violet-600 active:scale-95 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
           >
             <ChevronRight size={18} />
           </button>
 
           <button
             onClick={goToday}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-violet-600 active:scale-95 transition-all"
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
             title="Heute"
           >
             <CalendarDays size={18} />
@@ -169,8 +189,8 @@ export default function CalendarView() {
         {DAY_LABELS.map((d, i) => (
           <div
             key={d}
-            className={`text-center text-xs font-bold py-2 uppercase
-              ${WEEKEND_COLS.includes(i) ? 'text-red-400' : 'text-gray-500'}`}
+            className={`text-center text-xs font-extrabold py-2 uppercase tracking-wide
+              ${WEEKEND_COLS.includes(i) ? 'text-red-400' : 'text-gray-600'}`}
           >
             {d}
           </div>
@@ -184,9 +204,23 @@ export default function CalendarView() {
           className={`grid grid-cols-7 h-full border-t border-l border-gray-100 ${monthAnimClass}`}
           style={{ gridTemplateRows: `repeat(${Math.ceil((firstDay + days) / 7)}, 1fr)`, '--cal-dur': monthAnimDur } as React.CSSProperties}
         >
-          {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`${year}-${month}-empty-${i}`} className="border-r border-b border-gray-100 bg-gray-50/50" />
-          ))}
+          {Array.from({ length: firstDay }).map((_, i) => {
+            const d = daysInPrev - firstDay + i + 1
+            const isWeekend = WEEKEND_COLS.includes(i)
+            const dayGroups = byDayPrev.get(d) ?? new Map()
+            return (
+              <div key={`prev-${d}`} className="border-r border-b border-gray-100 h-full opacity-35">
+                <CalendarDay
+                  day={d} isToday={false} isWeekend={isWeekend}
+                  todayStyle={settings.todayStyle} groups={dayGroups}
+                  entrySize={settings.entrySize} compact={false} bold={false}
+                  animation="none" animSpeed={settings.calAnimSpeed}
+                  amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
+                  onToggleGroup={toggleGroup}
+                />
+              </div>
+            )
+          })}
           {Array.from({ length: days }).map((_, i) => {
             const day = i + 1
             const col = (firstDay + i) % 7
@@ -209,6 +243,24 @@ export default function CalendarView() {
                   animSpeed={settings.calAnimSpeed}
                   amPmSplit={settings.amPmSplit}
                   groupStatus={groupStatus}
+                  onToggleGroup={toggleGroup}
+                />
+              </div>
+            )
+          })}
+          {Array.from({ length: trailingDays }).map((_, i) => {
+            const d = i + 1
+            const col = (firstDay + days + i) % 7
+            const isWeekend = WEEKEND_COLS.includes(col)
+            const dayGroups = byDayNext.get(d) ?? new Map()
+            return (
+              <div key={`next-${d}`} className="border-r border-b border-gray-100 h-full opacity-35">
+                <CalendarDay
+                  day={d} isToday={false} isWeekend={isWeekend}
+                  todayStyle={settings.todayStyle} groups={dayGroups}
+                  entrySize={settings.entrySize} compact={false} bold={false}
+                  animation="none" animSpeed={settings.calAnimSpeed}
+                  amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
                   onToggleGroup={toggleGroup}
                 />
               </div>

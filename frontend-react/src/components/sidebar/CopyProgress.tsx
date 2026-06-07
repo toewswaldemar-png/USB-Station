@@ -61,7 +61,8 @@ export default function CopyProgress({ sseMsg, selectedDrive }: Props) {
         </button>
         <button
           onClick={clearAll}
-          className="w-9 flex items-center justify-center rounded-lg text-sm border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 transition-colors"
+          disabled={paths.length === 0}
+          className="w-9 flex items-center justify-center rounded-lg text-sm border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-30 disabled:pointer-events-none"
         >
           ✕
         </button>

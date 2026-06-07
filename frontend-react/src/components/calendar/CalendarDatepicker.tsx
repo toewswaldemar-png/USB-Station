@@ -40,7 +40,7 @@ export default function CalendarDatepicker({ year, month, onSelect, onClose }: P
 
         <button
           onClick={() => setYearMode(m => !m)}
-          className="text-lg font-bold text-gray-800 hover:text-violet-600 transition-colors px-2"
+          className="text-lg font-bold transition-colors px-2 text-gray-800"
         >
           {yearMode ? `${yearBase} – ${yearBase + 11}` : pickYear}
         </button>

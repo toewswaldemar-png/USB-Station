@@ -19,7 +19,7 @@ export default function CalendarEntry({ label, files, status, size, bold, animCl
   const displayLabel = label.replace(DATE_RE, '').replace(DATE_RE, '').trim() || label
 
   const entryStyle: Record<string, React.CSSProperties> = {
-    none:    { background: 'var(--accent-l)', color: 'var(--accent)' },
+    none:    { background: 'var(--accent-l)', color: '#555' },
     partial: { background: 'color-mix(in srgb, var(--accent) 65%, transparent)', color: '#fff' },
     full:    { background: 'var(--accent)',   color: '#fff' },
   }

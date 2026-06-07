@@ -42,7 +42,7 @@ export default function SelectionPanel() {
 
             {/* Gruppenheader */}
             <div
-              className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-3 py-1 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => setOpenKey(isOpen ? null : key)}
             >
               <div className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
@@ -70,7 +70,7 @@ export default function SelectionPanel() {
                 {files.map(f => (
                   <div
                     key={f.path}
-                    className="flex items-center gap-2 pl-4 pr-3 py-1.5 hover:bg-gray-100/60 transition-colors"
+                    className="flex items-center gap-2 pl-4 pr-3 py-0.5 hover:bg-gray-100/60 transition-colors"
                   >
                     <div className="w-1 h-1 rounded-full shrink-0 bg-gray-300" />
                     <span className="flex-1 text-[11px] text-gray-500 truncate">

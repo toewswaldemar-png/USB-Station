@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ChevronRight, Home } from 'lucide-react'
+import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
 import { useFilesStore } from '@/stores/filesStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useConfigStore } from '@/stores/configStore'
@@ -30,7 +30,7 @@ export default function ExplorerView() {
   const audioPath = useConfigStore(s => s.config.audio_path)
   const settings = useUISettingsStore(s => s.settings)
 
-  const [path, setPath] = useState<string[]>([])           // Breadcrumb-Stack
+  const [path, setPath] = useState<string[]>([])
   const [history, setHistory] = useState<string[][]>([[]])
   const [histIdx, setHistIdx] = useState(0)
   const [search, setSearch] = useState('')
@@ -46,12 +46,10 @@ export default function ExplorerView() {
   const isCloud = path[0] === '__cloud__'
   const currentFolder = path.join('/')
 
-  // Rubber-Band
   const parentRef = useRef<HTMLDivElement>(null)
   const [rubberBand, setRubberBand] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const rbStart = useRef<{ x: number; y: number } | null>(null)
 
-  // Swipe
   const swipeStart = useRef(0)
 
   const navigate = useCallback(async (newPath: string[]) => {
@@ -69,6 +67,8 @@ export default function ExplorerView() {
     }
   }, [audioPath])
 
+  useEffect(() => { navigate([]) }, [navigate])
+
   function pushPath(newPath: string[]) {
     const next = history.slice(0, histIdx + 1)
     next.push(newPath)
@@ -84,14 +84,12 @@ export default function ExplorerView() {
     if (histIdx < history.length - 1) { setHistIdx(h => h + 1); navigate(history[histIdx + 1]) }
   }
 
-  // Aktuell angezeigte Zeilen berechnen
   type Row = { type: 'dir'; name: string; size: number } | { type: 'file'; file: AudioFile }
 
   let rows: Row[] = []
   if (isCloud) {
     // Cloud-Modus: wird separat behandelt
   } else if (dirEntries !== null) {
-    // Verzeichnis-Ansicht über API
     const filtered = dirEntries.filter(e =>
       !search || e.name.toLowerCase().includes(search.toLowerCase())
     )
@@ -106,7 +104,6 @@ export default function ExplorerView() {
       }),
     ]
   } else {
-    // Root-Ansicht: alle Dateien aus DB
     const filesInFolder = currentFolder
       ? allFiles.filter(f => f.path.startsWith(currentFolder + '/'))
       : allFiles
@@ -167,15 +164,23 @@ export default function ExplorerView() {
   return (
     <div className="flex flex-col h-full">
       {/* Breadcrumb + Suche */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b shrink-0 bg-white">
-        <button onClick={() => pushPath([])} className="p-1 hover:bg-gray-100 rounded"><Home size={15}/></button>
+      <div className="flex items-center gap-1 px-3 py-1.5 shadow-sm z-10 relative shrink-0 bg-white">
+        <button onClick={goBack} disabled={histIdx === 0} className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
+          <ArrowLeft size={15}/>
+        </button>
+        <button onClick={goForward} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
+          <ArrowRight size={15}/>
+        </button>
+        <button onClick={() => pushPath([])} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-[var(--accent)] transition-colors">
+          <Home size={15}/>
+        </button>
         {path.map((seg, i) => (
           <span key={i} className="flex items-center gap-1 text-sm">
-            <ChevronRight size={13} className="text-gray-400"/>
+            <ChevronRight size={13} className="text-gray-300"/>
             <button
               onClick={() => pushPath(path.slice(0, i + 1))}
-              className="hover:underline"
-              style={{ color: i === path.length - 1 ? 'var(--accent)' : undefined }}
+              className="font-medium hover:text-[var(--accent)] transition-colors"
+              style={{ color: i === path.length - 1 ? 'var(--accent)' : '#374151' }}
             >
               {seg === '__cloud__' ? '☁ Cloud' : seg}
             </button>
@@ -185,26 +190,28 @@ export default function ExplorerView() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Suchen…"
-          className="ml-auto border rounded px-2 py-0.5 text-sm w-40 focus:outline-none focus:ring-1"
+          className="ml-auto border border-gray-200 rounded-lg px-2.5 py-1 text-sm w-44 focus:outline-none focus:ring-2 focus:border-transparent"
           style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
         />
-        <button onClick={goBack} disabled={histIdx === 0} className="p-1 rounded hover:bg-gray-100 disabled:opacity-30">‹</button>
-        <button onClick={goForward} disabled={histIdx >= history.length - 1} className="p-1 rounded hover:bg-gray-100 disabled:opacity-30">›</button>
       </div>
 
       {/* Tabellen-Header */}
-      <div className="flex items-center border-b bg-gray-50 shrink-0 text-xs font-medium text-gray-500 select-none">
+      <div className="flex items-center border-b border-gray-100 bg-gray-50 shrink-0 text-xs font-semibold text-gray-500 tracking-wide select-none">
         <div className="w-8 pl-2">
           <input type="checkbox" onChange={e => {
-            const fileRows = rows.filter(r => r.type === 'file').map(r => (r as { type: 'file'; file: AudioFile }).file)
-            if (e.target.checked) fileRows.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
-            else fileRows.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
+            const scope = currentFolder
+              ? allFiles.filter(f => f.path.startsWith(currentFolder + '/'))
+              : allFiles
+            if (e.target.checked) scope.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+            else scope.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
           }} className="accent-[var(--accent)]"/>
         </div>
-        <button className="flex-1 px-2 py-1.5 text-left hover:text-gray-800" onClick={() => toggleSort('name')}>
-          Name {sort.by === 'name' ? (sort.dir === 'asc' ? '↑' : '↓') : ''}
+        <button className="flex-1 px-2 py-2 text-left flex items-center gap-1 hover:text-gray-800 transition-colors" onClick={() => toggleSort('name')}>
+          Name {sort.by === 'name' ? (sort.dir === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>) : null}
         </button>
-        <div style={{ width: colW('date', 100) }} className="px-2 py-1.5 shrink-0 cursor-col-resize flex items-center justify-between"
+        <div
+          style={{ width: colW('date', 100) }}
+          className="px-2 py-2 shrink-0 cursor-col-resize flex items-center justify-between"
           onMouseDown={e => {
             const startX = e.clientX
             const onMove = (ev: MouseEvent) => handleColResize('date', ev.clientX - startX)
@@ -213,10 +220,12 @@ export default function ExplorerView() {
             document.addEventListener('mouseup', onUp)
           }}
         >
-          <button onClick={() => toggleSort('date')}>Datum {sort.by === 'date' ? (sort.dir === 'asc' ? '↑' : '↓') : ''}</button>
-          <span className="text-gray-300">⋮</span>
+          <button onClick={() => toggleSort('date')} className="flex items-center gap-1 hover:text-gray-800 transition-colors">
+            Datum {sort.by === 'date' ? (sort.dir === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>) : null}
+          </button>
+          <GripVertical size={12} className="text-gray-300"/>
         </div>
-        <div style={{ width: colW('size', 80) }} className="px-2 py-1.5 shrink-0 text-right">Größe</div>
+        <div style={{ width: colW('size', 80) }} className="px-2 py-2 shrink-0 text-right">Größe</div>
       </div>
 
       {/* Virtualisierte Liste */}
@@ -254,20 +263,34 @@ export default function ExplorerView() {
             if (!row) return null
 
             if (row.type === 'dir') {
+              const folderFiles = allFiles.filter(f => f.path.startsWith([...path, row.name].join('/') + '/'))
+              const allSel = folderFiles.length > 0 && folderFiles.every(f => selectedFiles.has(f.path))
+              const someSel = folderFiles.some(f => selectedFiles.has(f.path))
               return (
                 <div
                   key={vi.key}
                   style={{ position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px' }}
-                  className="flex items-center border-b hover:bg-gray-50 cursor-pointer select-none"
-                  onDoubleClick={() => pushPath([...path, row.name])}
+                  className="flex items-center border-b border-gray-100 hover:bg-gray-50/80 transition-colors cursor-pointer select-none"
+                  onClick={() => pushPath([...path, row.name])}
                 >
-                  <div className="w-8" />
-                  <div className="flex-1 px-2 text-sm flex items-center gap-1.5">
-                    <span>📁</span>
-                    <span>{row.name}</span>
+                  <div className="w-8 pl-2" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={allSel}
+                      ref={el => { if (el) el.indeterminate = someSel && !allSel }}
+                      onChange={() => {
+                        if (allSel) folderFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
+                        else folderFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+                      }}
+                      className="accent-[var(--accent)]"
+                    />
+                  </div>
+                  <div className="flex-1 px-2 text-sm flex items-center gap-2">
+                    <Folder size={15} className="shrink-0" style={{ color: 'var(--accent)' }}/>
+                    <span className="font-medium text-gray-700 truncate">{row.name}</span>
                   </div>
                   <div style={{ width: colW('date', 100) }} />
-                  <div style={{ width: colW('size', 80) }} className="px-2 text-xs text-right text-gray-400">–</div>
+                  <div style={{ width: colW('size', 80) }} className="px-2 text-xs text-right text-gray-300 shrink-0">–</div>
                 </div>
               )
             }
@@ -281,8 +304,9 @@ export default function ExplorerView() {
                 style={{
                   position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px',
                   background: sel ? 'var(--accent-xl)' : undefined,
+                  borderLeft: `3px solid ${sel ? 'var(--accent)' : 'transparent'}`,
                 }}
-                className="flex items-center border-b hover:bg-gray-50 select-none"
+                className="flex items-center border-b border-gray-100 hover:bg-gray-50/80 transition-colors select-none"
                 onDoubleClick={() => setOverlay(file.path)}
                 onKeyDown={e => {
                   if (e.key === 'F2') { startRename(file.path.split('/').pop() ?? '') }
@@ -296,7 +320,8 @@ export default function ExplorerView() {
                     className="accent-[var(--accent)]"
                   />
                 </div>
-                <div className="flex-1 px-2 text-sm truncate">
+                <div className="flex-1 px-2 text-sm truncate flex items-center gap-2">
+                  <Music size={13} className="shrink-0 text-gray-300"/>
                   {renaming === file.path.split('/').pop() ? (
                     <input
                       autoFocus
@@ -307,16 +332,16 @@ export default function ExplorerView() {
                         if (e.key === 'Enter') commitRename()
                         if (e.key === 'Escape') setRenaming(null)
                       }}
-                      className="border rounded px-1 text-sm w-full"
+                      className="border border-[var(--accent)] rounded-md px-1.5 text-sm w-full focus:outline-none"
                     />
                   ) : (
-                    file.title || file.path.split('/').pop()
+                    <span className="truncate">{file.title || file.path.split('/').pop()}</span>
                   )}
                 </div>
-                <div style={{ width: colW('date', 100) }} className="px-2 text-xs text-gray-500 shrink-0">
+                <div style={{ width: colW('date', 100) }} className="px-2 text-xs text-gray-400 shrink-0">
                   {formatDate(file.date)}
                 </div>
-                <div style={{ width: colW('size', 80) }} className="px-2 text-xs text-right text-gray-400 shrink-0">
+                <div style={{ width: colW('size', 80) }} className="px-2 text-xs text-right text-gray-300 shrink-0">
                   {fmtBytes(file.size)}
                 </div>
               </div>

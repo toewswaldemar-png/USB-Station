@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { AudioFile } from '@/types'
 import CalendarEntry from './CalendarEntry'
 
@@ -37,20 +38,21 @@ export default function CalendarDay({
 
   const visibleEntries = (amPmSplit ? [...amEntries, ...pmEntries] : allEntries).slice(0, 2)
 
-  const cellBg = isToday && todayStyle === 'cell' ? 'bg-violet-50' : 'bg-white'
-
-  const todayRing = isToday && todayStyle === 'ring' ? 'ring-2 ring-inset ring-violet-400' : ''
+  const containerStyle: CSSProperties = {
+    background: isToday && todayStyle === 'cell' ? 'var(--accent-xl)' : 'white',
+    ...(isToday && todayStyle === 'ring' ? { boxShadow: 'inset 0 0 0 2px var(--accent)' } : {}),
+  }
 
   const numEl = isToday ? (
     todayStyle === 'filled'
-      ? <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold">{day}</span>
-      : <span className="flex items-center justify-center w-6 h-6 rounded-full text-violet-600 text-xs font-bold">{day}</span>
+      ? <span className="flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold" style={{ background: 'var(--accent)' }}>{day}</span>
+      : <span className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold" style={{ color: 'var(--accent)' }}>{day}</span>
   ) : (
     <span className={`text-xs font-semibold ${isWeekend ? 'text-red-400' : 'text-gray-400'}`}>{day}</span>
   )
 
   return (
-    <div className={`flex flex-col overflow-hidden h-full ${cellBg} ${todayRing}`}>
+    <div className="flex flex-col overflow-hidden h-full" style={containerStyle}>
       <div className="px-2 pt-1.5 pb-0.5 shrink-0">
         {numEl}
       </div>
