@@ -28,3 +28,7 @@ Audio/
 # Claude Code lokal
 .claude/
 copycenter.exe
+
+# Lokale Entwicklungsdateien
+explorer-mockup.html
+filestation-go/*.exe
