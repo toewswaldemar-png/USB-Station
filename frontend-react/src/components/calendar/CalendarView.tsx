@@ -77,6 +77,7 @@ export default function CalendarView() {
   }
   function goToday() {
     const toY = today.getFullYear(), toM = today.getMonth()
+    if (toY === year && toM === month) return
     setSlideDir(toY > year || (toY === year && toM > month) ? 'next' : 'prev')
     setYear(toY); setMonth(toM)
   }
@@ -140,48 +141,48 @@ export default function CalendarView() {
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
-      {/* Monatsnavigation – zentriert */}
-      <div className="flex items-center justify-center px-4 py-3 bg-gray-100 shrink-0">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goPrev}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md active:scale-95 transition-all hover:text-[var(--accent)]"
-          >
-            <ChevronLeft size={18} />
-          </button>
+      {/* Monatsnavigation */}
+      <div className="flex items-center justify-center px-4 py-3 bg-gray-100 shrink-0 gap-2">
+        <button
+          onClick={goPrev}
+          className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md active:scale-95 transition-all hover:text-[var(--accent)]"
+        >
+          <ChevronLeft size={18} />
+        </button>
 
-          <div className="relative">
-            <button
-              onMouseDown={e => e.stopPropagation()}
-              onClick={() => setPickerOpen(p => !p)}
-              className="text-2xl font-bold px-2 w-52 text-center text-gray-800 rounded-lg active:scale-95 transition-all hover:text-[var(--accent)]"
-            >
-              {MONTH_NAMES[month]} {year}
-            </button>
-            {pickerOpen && (
-              <CalendarDatepicker
-                year={year} month={month}
-                onSelect={(y, m) => { setYear(y); setMonth(m); setPickerOpen(false) }}
-                onClose={() => setPickerOpen(false)}
-              />
-            )}
-          </div>
-
+        {/* Monatsname: Breite richtet sich am längsten Monatsnamen aus —
+            unsichtbarer Referenztext reserviert den Platz, skaliert mit Schriftgröße */}
+        <div className="relative">
           <button
-            onClick={goNext}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={() => setPickerOpen(p => !p)}
+            className="relative text-2xl font-bold px-2 text-center text-gray-800 rounded-lg active:scale-95 transition-all hover:text-[var(--accent)]"
           >
-            <ChevronRight size={18} />
+            <span className="invisible whitespace-nowrap select-none" aria-hidden>September {year}</span>
+            <span className="absolute inset-0 flex items-center justify-center whitespace-nowrap">{MONTH_NAMES[month]} {year}</span>
           </button>
-
-          <button
-            onClick={goToday}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
-            title="Heute"
-          >
-            <CalendarDays size={18} />
-          </button>
+          {pickerOpen && (
+            <CalendarDatepicker
+              year={year} month={month}
+              onSelect={(y, m) => { setYear(y); setMonth(m); setPickerOpen(false) }}
+              onClose={() => setPickerOpen(false)}
+            />
+          )}
         </div>
+
+        <button
+          onClick={goNext}
+          className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
+        >
+          <ChevronRight size={18} />
+        </button>
+        <button
+          onClick={goToday}
+          className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
+          title="Heute"
+        >
+          <CalendarDays size={18} />
+        </button>
       </div>
 
       {/* Wochentag-Header */}
@@ -198,7 +199,7 @@ export default function CalendarView() {
       </div>
 
       {/* Kalender-Grid */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden bg-white">
         <div
           key={`${year}-${month}`}
           className={`grid grid-cols-7 h-full border-t border-l border-gray-100 ${monthAnimClass}`}
@@ -209,15 +210,17 @@ export default function CalendarView() {
             const isWeekend = WEEKEND_COLS.includes(i)
             const dayGroups = byDayPrev.get(d) ?? new Map()
             return (
-              <div key={`prev-${d}`} className="border-r border-b border-gray-100 h-full opacity-35">
-                <CalendarDay
-                  day={d} isToday={false} isWeekend={isWeekend}
-                  todayStyle={settings.todayStyle} groups={dayGroups}
-                  entrySize={settings.entrySize} compact={false} bold={false}
-                  animation="none" animSpeed={settings.calAnimSpeed}
-                  amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
-                  onToggleGroup={toggleGroup}
-                />
+              <div key={`prev-${d}`} className="border-r border-b border-gray-100 h-full">
+                <div className="opacity-35 h-full">
+                  <CalendarDay
+                    day={d} isToday={false} isWeekend={isWeekend}
+                    todayStyle={settings.todayStyle} groups={dayGroups}
+                    entrySize={settings.entrySize} compact={false} bold={false}
+                    animation="none" animSpeed={settings.calAnimSpeed}
+                    amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
+                    onToggleGroup={toggleGroup}
+                  />
+                </div>
               </div>
             )
           })}
@@ -254,15 +257,17 @@ export default function CalendarView() {
             const isWeekend = WEEKEND_COLS.includes(col)
             const dayGroups = byDayNext.get(d) ?? new Map()
             return (
-              <div key={`next-${d}`} className="border-r border-b border-gray-100 h-full opacity-35">
-                <CalendarDay
-                  day={d} isToday={false} isWeekend={isWeekend}
-                  todayStyle={settings.todayStyle} groups={dayGroups}
-                  entrySize={settings.entrySize} compact={false} bold={false}
-                  animation="none" animSpeed={settings.calAnimSpeed}
-                  amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
-                  onToggleGroup={toggleGroup}
-                />
+              <div key={`next-${d}`} className="border-r border-b border-gray-100 h-full">
+                <div className="opacity-35 h-full">
+                  <CalendarDay
+                    day={d} isToday={false} isWeekend={isWeekend}
+                    todayStyle={settings.todayStyle} groups={dayGroups}
+                    entrySize={settings.entrySize} compact={false} bold={false}
+                    animation="none" animSpeed={settings.calAnimSpeed}
+                    amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
+                    onToggleGroup={toggleGroup}
+                  />
+                </div>
               </div>
             )
           })}

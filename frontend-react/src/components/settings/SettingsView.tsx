@@ -90,7 +90,6 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const [exitConfirm, setExitConfirm] = useState(false)
   const exitTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const exitBtnRef = useRef<HTMLButtonElement>(null)
-  const dragStartedInside = useRef(false)
   useEffect(() => () => clearTimeout(exitTimer.current), [])
   useEffect(() => {
     if (!exitConfirm) return
@@ -191,12 +190,11 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   return (
     <div
       className="fixed inset-0 z-40 flex justify-end"
-      onClick={() => { if (!dragStartedInside.current && !picking) onClose() }}
+      onMouseDown={() => { if (!picking) onClose() }}
     >
       <div
         className="relative h-full w-[440px] bg-white shadow-2xl overflow-y-auto flex flex-col"
-        onMouseDown={() => { dragStartedInside.current = true }}
-        onClick={e => { dragStartedInside.current = false; e.stopPropagation() }}
+        onMouseDown={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 sticky top-0 bg-white z-10 border-b border-gray-100">
