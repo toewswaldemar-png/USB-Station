@@ -3,21 +3,22 @@ module filestation
 go 1.26.3
 
 require (
-	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
-	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8 // indirect
+	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
+	github.com/fsnotify/fsnotify v1.10.1
+	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
+	github.com/jmoiron/sqlx v1.4.0
+	golang.org/x/sys v0.45.0
+	modernc.org/sqlite v1.51.0
+)
+
+require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808 // indirect
 	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
-	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac // indirect
-	golang.org/x/sys v0.45.0 // indirect
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.51.0 // indirect
 )

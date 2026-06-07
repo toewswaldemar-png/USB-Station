@@ -86,9 +86,11 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const { config, save: saveConfig } = useConfigStore()
   const refreshFiles = useFilesStore(s => s.refreshFiles)
   const [isFs, setIsFs] = useState(false)
+  const [picking, setPicking] = useState(false)
   const [exitConfirm, setExitConfirm] = useState(false)
   const exitTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const exitBtnRef = useRef<HTMLButtonElement>(null)
+  const dragStartedInside = useRef(false)
   useEffect(() => () => clearTimeout(exitTimer.current), [])
   useEffect(() => {
     if (!exitConfirm) return
@@ -145,10 +147,15 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   }
 
   async function pickFolder() {
-    const res = await fetch('/api/pick-folder')
-    if (res.ok) {
-      const { path } = await res.json() as { path: string }
-      if (path) setAudioPath(path)
+    setPicking(true)
+    try {
+      const res = await fetch('/api/pick-folder')
+      if (res.ok) {
+        const { path } = await res.json() as { path: string }
+        if (path) setAudioPath(path)
+      }
+    } finally {
+      setPicking(false)
     }
   }
 
@@ -182,10 +189,14 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 flex justify-end"
+      onClick={() => { if (!dragStartedInside.current && !picking) onClose() }}
+    >
       <div
         className="relative h-full w-[440px] bg-white shadow-2xl overflow-y-auto flex flex-col"
-        onClick={e => e.stopPropagation()}
+        onMouseDown={() => { dragStartedInside.current = true }}
+        onClick={e => { dragStartedInside.current = false; e.stopPropagation() }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 sticky top-0 bg-white z-10 border-b border-gray-100">
@@ -287,7 +298,8 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 />
                 <button
                   onClick={pickFolder}
-                  className="px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                  disabled={picking}
+                  className="px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                 >
                   Wählen
                 </button>

@@ -19,21 +19,23 @@ export default function Header({ onOpenSettings }: { onOpenSettings: () => void 
 
   return (
     <header
-      className="relative flex items-center px-4 py-2 select-none shrink-0 shadow-md z-10"
+      className="flex items-center px-4 py-2 select-none shrink-0 shadow-md z-10 gap-4"
       style={{ background: 'var(--accent)', color: '#fff', fontSize: 'var(--font-size-header)' }}
     >
-      <span className="font-semibold text-lg shrink-0">{appName}</span>
+      <span className="font-semibold text-lg shrink-0 w-36">{appName}</span>
 
-      {verse && (
-        <span className="absolute left-1/2 -translate-x-1/2 text-sm opacity-90 truncate max-w-[30%] text-center pointer-events-none">
-          <em>{verse.text}</em>
-          <span className="ml-2 opacity-75">– {verse.ref}</span>
-        </span>
-      )}
+      <div className="flex-1 min-w-0 text-center pointer-events-none">
+        {verse && (
+          <span className="text-sm opacity-90 truncate block">
+            <em>{verse.text}</em>
+            <span className="ml-2 opacity-75">– {verse.ref}</span>
+          </span>
+        )}
+      </div>
 
-      <div className="ml-auto flex items-center gap-4">
+      <div className="flex items-center gap-4 shrink-0">
         <div className="text-sm flex items-center gap-2">
-          <span className="font-semibold tracking-wide">{time}</span>
+          <span className="opacity-80">{time}</span>
           <span className="opacity-40">|</span>
           <span className="opacity-80">{date}</span>
         </div>

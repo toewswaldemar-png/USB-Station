@@ -14,8 +14,9 @@
   user-select: none;
 }
 
-input, textarea {
+input, textarea, select {
   user-select: text;
+  --tw-ring-color: var(--accent);
 }
 
 body {
