@@ -1,0 +1,54 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git branch *)",
+      "Bash(go build *)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& 'C:/Users/waldemar.toews/Documents/GitHub/USB-Station/.claude/hooks/go-build.ps1'",
+            "shell": "powershell",
+            "statusMessage": "Go build prüfen…",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "& 'C:/Users/waldemar.toews/Documents/GitHub/USB-Station/.claude/hooks/ts-build.ps1'",
+            "shell": "powershell",
+            "statusMessage": "TypeScript build prüfen…",
+            "asyncRewake": true,
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& 'C:/Users/waldemar.toews/Documents/GitHub/USB-Station/.claude/hooks/git-status.ps1'",
+            "shell": "powershell",
+            "statusMessage": "Git-Status prüfen…"
+          }
+        ]
+      }
+    ]
+  }
+}

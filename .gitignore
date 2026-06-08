@@ -25,8 +25,8 @@ frontend-react/dist/
 # Audiodateien (zu groß für Git)
 Audio/
 
-# Claude Code lokal
-.claude/
+# Claude Code: nur lokale Overrides ignorieren; settings.json + hooks commiten
+.claude/settings.local.json
 copycenter.exe
 
 # Lokale Entwicklungsdateien
