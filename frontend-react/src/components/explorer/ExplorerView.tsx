@@ -60,18 +60,27 @@ export default function ExplorerView() {
   const navigate = useCallback((newPath: string[]) => {
     const key = newPath.join('/')
     const id = ++navId.current
-    setPath(newPath)
     setSearch('')
-    if (newPath[0] === '__cloud__') { setDirEntries(null); return }
+    if (newPath[0] === '__cloud__') { setPath(newPath); setDirEntries(null); return }
 
-    // SWR: gecachten Stand sofort anzeigen (null → Skeleton).
-    // Parallel immer vom Server holen — DirService antwortet aus seinem Cache
-    // in 1–5 ms, beim ersten Zugriff etwas länger.
-    setDirEntries(getCachedDir(key))
+    const cached = getCachedDir(key)
+    if (cached) {
+      setPath(newPath)
+      setDirEntries(cached)
+      fetchDir(key).then(data => {
+        if (navId.current !== id) return
+        if (data) setDirEntries(data)
+      })
+      return
+    }
+
+    // Cache-Miss: erst warten, dann Pfad + Inhalt atomar setzen → kein Skeleton-Flash.
     fetchDir(key).then(data => {
       if (navId.current !== id) return
-      if (data !== null) setDirEntries(data)
-      else if (key) navigate(newPath.slice(0, -1))
+      if (data !== null) {
+        setPath(newPath)
+        setDirEntries(data)
+      } else if (key) navigate(newPath.slice(0, -1))
     })
   }, [])
 
