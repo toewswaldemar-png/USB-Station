@@ -68,7 +68,7 @@ go test ./internal/scan -v
 **Client kiosk client:**
 ```powershell
 # Nach dem Build: _build/Client/fileclient.exe ausführen
-# fileclient.json in _build/Client/ anpassen (server_url)
+# _build/Client/config.json anpassen: {"server_url": "http://HOST:8000"}
 ```
 
 ## Architecture
@@ -84,7 +84,7 @@ go test ./internal/scan -v
 | `internal/fs/service.go` | `DirService`: cached directory listings (TTL + fsnotify), SWR background-refresh, per-directory RWMutex, `os.ReadDir`-based (never recursive). Used by `Open` and `Browse` handlers. |
 | `internal/watch/watch.go` | `fsnotify` watcher: watches all subdirs recursively, per-path debounce, 10-min reconcile loop (safety net). Fires `dir_invalidated` SSE via DirService callback on external FS changes. |
 | `internal/sse/sse.go` | Hub: `Register`/`Unregister` channels, `Notify()`, 30 s ping keepalive |
-| `internal/usb/` | Windows: `GetLogicalDrives`+`GetDriveTypeW` syscalls; Linux: glob `/media` |
+| `internal/usb/` | Windows: `GetLogicalDrives`+`GetDriveTypeW` syscalls; Linux/macOS: glob `/media/*/*`, `/run/media/*/*`, `/mnt/usb*` |
 | `internal/config/config.go` | `config.json` + `ui_settings.json` with `sync.RWMutex` |
 | `internal/verse/verse.go` | Daily Bible verse (getbible.net API + local fallback) |
 | `internal/webdav/webdav.go` | PROPFIND proxy; SSL verification disabled for self-signed NAS certs |
@@ -127,7 +127,7 @@ Routes: `GET /api/webdav/list`, `GET /api/webdav/stream`, `PUT /api/webdav/put`,
 
 ### Client (`cmd/fileclient/main.go`)
 
-Go + `go-webview2` (no CGO). Reads `fileclient.json` for `server_url`. Polls every 1 s until `/api/config` is reachable, then loads the app; polls every 30 s while connected.
+Go + `go-webview2` (no CGO). Reads `config.json` (key `server_url`) from its working directory (`_build/Client/`). Polls every 1 s until `/api/config` is reachable, then loads the app; polls every 30 s while connected.
 
 ## Key API Endpoints
 
