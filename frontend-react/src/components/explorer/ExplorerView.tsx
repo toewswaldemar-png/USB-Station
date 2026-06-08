@@ -53,7 +53,9 @@ export default function ExplorerView() {
   const [rubberBand, setRubberBand] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
   const rbStart = useRef<{ x: number; y: number } | null>(null)
 
-  const swipeStart = useRef(0)
+  const swipeStartX = useRef(0)
+  const swipeStartY = useRef(0)
+  const swiping = useRef(false)
   const navId = useRef(0)
   const navDir = useRef<'next' | 'prev'>('next')
 
@@ -344,14 +346,18 @@ export default function ExplorerView() {
       <div
         ref={parentRef}
         className="flex-1 overflow-y-auto bg-white"
-        onTouchStart={e => { swipeStart.current = e.touches[0].clientX }}
-        onTouchEnd={e => {
-          const dx = e.changedTouches[0].clientX - swipeStart.current
-          if (Math.abs(dx) < 60) return
-          if (dx < 0 && path.length > 0) pushPath(path.slice(0, -1))
+        style={{ touchAction: 'pan-y' }}
+        onPointerDown={e => { swipeStartX.current = e.clientX; swipeStartY.current = e.clientY; swiping.current = true }}
+        onPointerUp={e => {
+          if (!swiping.current) return
+          swiping.current = false
+          const dx = e.clientX - swipeStartX.current
+          const dy = e.clientY - swipeStartY.current
+          if (Math.abs(dx) < settings.swipeThreshold) return
+          if (Math.abs(dy) > Math.abs(dx)) return
+          if (dx < 0 && path.length > 0) goBack()
           else if (dx > 0) goForward()
         }}
-        /* onMouseDown rubber-band — ausgeklammert */
       >
         {/* Leerer Ordner */}
         {dirEntries !== null && rows.length === 0 && !search && (
