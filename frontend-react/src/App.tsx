@@ -30,6 +30,7 @@ export default function App() {
   const loadConfig = useConfigStore(s => s.load)
   const loadUI = useUISettingsStore(s => s.load)
   const settings = useUISettingsStore(s => s.settings)
+  const uiLoaded = useUISettingsStore(s => s.loaded)
 
   // SSE
   useSSE((data) => {
@@ -56,15 +57,17 @@ export default function App() {
     loadFiles()
   }, [loadConfig, loadUI, loadFiles])
 
-  // Einstellungen → CSS-Variablen
+  // Einstellungen → CSS-Variablen (erst nach API-Antwort, damit index.html-Cache nicht überschrieben wird)
   useEffect(() => {
+    if (!uiLoaded) return
     const preset = COLOR_PRESETS[settings.colorPreset] ?? COLOR_PRESETS[0]
     const root = document.documentElement
     root.style.setProperty('--accent', preset.accent)
     root.style.setProperty('--accent-l', preset.light)
     root.style.setProperty('--accent-xl', preset.xlight)
     root.style.setProperty('--font-family', settings.fontFamily)
-  }, [settings])
+    localStorage.setItem('ui_accent', JSON.stringify({ a: preset.accent, l: preset.light, xl: preset.xlight }))
+  }, [settings, uiLoaded])
 
   function switchTab(tab: 'calendar' | 'explorer') {
     setActiveTab(tab)

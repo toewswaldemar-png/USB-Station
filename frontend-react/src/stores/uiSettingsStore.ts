@@ -30,6 +30,11 @@ const DEFAULTS: UISettings = {
   sortDir: 'desc',
 }
 
+const CACHE_KEY = 'ui_settings_cache'
+function loadCache(): Partial<UISettings> {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') } catch { return {} }
+}
+
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 interface UISettingsState {
@@ -40,14 +45,16 @@ interface UISettingsState {
 }
 
 export const useUISettingsStore = create<UISettingsState>((set, get) => ({
-  settings: DEFAULTS,
+  settings: { ...DEFAULTS, ...loadCache() },
   loaded: false,
 
   async load() {
     try {
       const res = await fetch('/api/ui-settings')
       const raw = await res.json() as Record<string, unknown>
-      set({ settings: { ...DEFAULTS, ...raw }, loaded: true })
+      const merged = { ...DEFAULTS, ...raw }
+      localStorage.setItem(CACHE_KEY, JSON.stringify(merged))
+      set({ settings: merged, loaded: true })
     } catch {
       set({ loaded: true })
     }

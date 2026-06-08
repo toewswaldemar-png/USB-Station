@@ -201,13 +201,14 @@ func Open(w http.ResponseWriter, r *http.Request) {
 
 		// Keep the legacy array format so the existing frontend keeps working.
 		type legacyEntry struct {
-			Name  string `json:"name"`
-			IsDir bool   `json:"is_dir"`
-			Size  int64  `json:"size"`
+			Name    string    `json:"name"`
+			IsDir   bool      `json:"is_dir"`
+			Size    int64     `json:"size"`
+			ModTime time.Time `json:"mod_time"`
 		}
 		items := make([]legacyEntry, 0, len(result.Entries))
 		for _, e := range result.Entries {
-			items = append(items, legacyEntry{Name: e.Name, IsDir: e.IsDir, Size: e.Size})
+			items = append(items, legacyEntry{Name: e.Name, IsDir: e.IsDir, Size: e.Size, ModTime: e.ModTime})
 		}
 		writeJSON(w, items)
 		return

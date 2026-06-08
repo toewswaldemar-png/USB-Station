@@ -1,4 +1,4 @@
-export interface DirEntry { name: string; is_dir: boolean; size: number }
+export interface DirEntry { name: string; is_dir: boolean; size: number; mod_time: string }
 
 // ─── Frontend-Cache ────────────────────────────────────────────────────────────
 //
@@ -17,13 +17,19 @@ const _cache = new Map<string, DirEntry[]>()
 // Kommt ein zweiter Aufruf während ein Fetch läuft, bekommt er dieselbe Promise.
 const _pending = new Map<string, Promise<DirEntry[] | null>>()
 
+const SS_PREFIX = 'dir:'
+
 export function fetchDir(key: string): Promise<DirEntry[] | null> {
   if (_pending.has(key)) return _pending.get(key)!
   const p = fetch(`/api/open?path=${encodeURIComponent(key || '.')}`)
     .then(r => r.ok ? r.json() : null)
     .then((data): DirEntry[] | null => {
       _pending.delete(key)
-      if (Array.isArray(data)) { _cache.set(key, data); return data }
+      if (Array.isArray(data)) {
+        _cache.set(key, data)
+        try { sessionStorage.setItem(SS_PREFIX + key, JSON.stringify(data)) } catch {}
+        return data
+      }
       return null
     })
     .catch(() => { _pending.delete(key); return null })
@@ -31,7 +37,19 @@ export function fetchDir(key: string): Promise<DirEntry[] | null> {
   return p
 }
 
-export function getCachedDir(key: string): DirEntry[] | null { return _cache.get(key) ?? null }
+export function getCachedDir(key: string): DirEntry[] | null {
+  const mem = _cache.get(key)
+  if (mem) return mem
+  try {
+    const s = sessionStorage.getItem(SS_PREFIX + key)
+    if (s) {
+      const parsed = JSON.parse(s) as DirEntry[]
+      _cache.set(key, parsed)
+      return parsed
+    }
+  } catch {}
+  return null
+}
 
 // ─── Cache-Invalidierung (via SSE) ────────────────────────────────────────────
 
