@@ -205,9 +205,9 @@ func Open(w http.ResponseWriter, r *http.Request) {
 			IsDir bool   `json:"is_dir"`
 			Size  int64  `json:"size"`
 		}
-		items := make([]legacyEntry, len(result.Entries))
-		for i, e := range result.Entries {
-			items[i] = legacyEntry{Name: e.Name, IsDir: e.IsDir, Size: e.Size}
+		items := make([]legacyEntry, 0, len(result.Entries))
+		for _, e := range result.Entries {
+			items = append(items, legacyEntry{Name: e.Name, IsDir: e.IsDir, Size: e.Size})
 		}
 		writeJSON(w, items)
 		return

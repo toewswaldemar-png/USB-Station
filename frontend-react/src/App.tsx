@@ -64,7 +64,6 @@ export default function App() {
     root.style.setProperty('--accent-l', preset.light)
     root.style.setProperty('--accent-xl', preset.xlight)
     root.style.setProperty('--font-family', settings.fontFamily)
-    document.body.style.fontWeight = '600'
   }, [settings])
 
   function switchTab(tab: 'calendar' | 'explorer') {

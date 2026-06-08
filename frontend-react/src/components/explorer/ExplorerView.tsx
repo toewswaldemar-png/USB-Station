@@ -70,8 +70,8 @@ export default function ExplorerView() {
     setDirEntries(getCachedDir(key))
     fetchDir(key).then(data => {
       if (navId.current !== id) return
-      if (data) setDirEntries(data)
-      else if (key) navigate([]) // Pfad nicht mehr erreichbar (gelöscht/umbenannt) → Root
+      if (data !== null) setDirEntries(data)
+      else if (key) navigate(newPath.slice(0, -1))
     })
   }, [])
 
@@ -213,39 +213,43 @@ export default function ExplorerView() {
   return (
     <div className="flex flex-col h-full">
       {/* Breadcrumb + Suche */}
-      <div className="flex items-center gap-1 px-3 py-1.5 shadow-sm z-10 relative shrink-0 bg-white">
-        <button onClick={goBack} disabled={histIdx === 0} className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
-          <ArrowLeft size={15}/>
-        </button>
-        <button onClick={goForward} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
-          <ArrowRight size={15}/>
-        </button>
-        <button onClick={() => pushPath([])} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-[var(--accent)] transition-colors">
+      <div className="flex items-center gap-2 px-4 py-0.5 shadow-sm z-10 relative shrink-0 bg-gray-50">
+        <div className="flex items-center gap-0">
+          <button onClick={goBack} disabled={histIdx === 0 || path.length === 0} className="p-1.5 rounded-full hover:bg-white disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
+            <ArrowLeft size={15}/>
+          </button>
+          <button onClick={goForward} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-full hover:bg-white disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
+            <ArrowRight size={15}/>
+          </button>
+        </div>
+        <button onClick={() => pushPath([])} className="p-1.5 rounded-full hover:bg-white text-gray-500 hover:text-[var(--accent)] transition-colors">
           <Home size={15}/>
         </button>
-        {path.map((seg, i) => (
-          <span key={i} className="flex items-center gap-1 text-sm">
-            <ChevronRight size={13} className="text-gray-300"/>
-            <button
-              onClick={() => pushPath(path.slice(0, i + 1))}
-              className="font-medium hover:text-[var(--accent)] transition-colors"
-              style={{ color: i === path.length - 1 ? 'var(--accent)' : '#374151' }}
-            >
-              {seg === '__cloud__' ? '☁ Cloud' : seg}
-            </button>
-          </span>
-        ))}
+        <div className="flex items-center gap-0">
+          {path.map((seg, i) => (
+            <span key={i} className="flex items-center gap-0.5">
+              <ChevronRight size={13} className="text-gray-300"/>
+              <button
+                onClick={() => pushPath(path.slice(0, i + 1))}
+                className={`px-2 py-1 rounded-full text-sm font-semibold transition-colors
+                  ${i === path.length - 1 ? 'bg-white text-[var(--accent)]' : 'text-gray-600 hover:bg-white hover:text-[var(--accent)]'}`}
+              >
+                {seg === '__cloud__' ? '☁ Cloud' : seg}
+              </button>
+            </span>
+          ))}
+        </div>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Suchen…"
-          className="ml-auto border border-gray-200 rounded-lg px-2.5 py-1 text-sm w-44 focus:outline-none focus:ring-2 focus:border-transparent"
+          className="ml-auto border border-gray-200 rounded-full px-2.5 py-1 text-sm w-44 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
           style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
         />
       </div>
 
       {/* Tabellen-Header */}
-      <div className="flex items-center border-b border-gray-100 bg-gray-50 shrink-0 text-xs font-semibold text-gray-500 tracking-wide select-none">
+      <div className="flex items-center border-b border-gray-100 bg-white shrink-0 text-xs font-semibold text-gray-500 tracking-wide select-none">
         <div className="w-8 pl-2">
           <input type="checkbox" onChange={e => {
             if (e.target.checked) scopeFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
@@ -277,7 +281,7 @@ export default function ExplorerView() {
       {/* Virtualisierte Liste — oder Skeleton beim ersten Laden */}
       <div
         ref={parentRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto bg-white"
         onTouchStart={e => { swipeStart.current = e.touches[0].clientX }}
         onTouchEnd={e => {
           const dx = e.changedTouches[0].clientX - swipeStart.current
@@ -303,6 +307,13 @@ export default function ExplorerView() {
           document.addEventListener('mouseup', onUp)
         }}
       >
+        {/* Leerer Ordner */}
+        {dirEntries !== null && rows.length === 0 && !search && (
+          <div className="flex items-center justify-center h-24 text-sm text-gray-400">
+            Keine Dateien vorhanden
+          </div>
+        )}
+
         {/* Skeleton: sichtbar solange dirEntries noch nicht geladen ist */}
         {dirEntries === null && (
           <div aria-hidden="true">
@@ -348,7 +359,7 @@ export default function ExplorerView() {
                   </div>
                   <div className="flex-1 px-2 text-sm flex items-center gap-2">
                     <Folder size={15} className="shrink-0" style={{ color: 'var(--accent)' }}/>
-                    <span className="font-medium text-gray-700 truncate">{row.name}</span>
+                    <span className="text-gray-700 truncate">{row.name}</span>
                   </div>
                   <div style={{ width: colW('date', 100) }} />
                   <div style={{ width: colW('size', 80) }} className="px-2 text-xs text-right text-gray-300 shrink-0">–</div>
@@ -365,7 +376,7 @@ export default function ExplorerView() {
                 style={{
                   position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px',
                   background: sel ? 'var(--accent-xl)' : undefined,
-                  borderLeft: `3px solid ${sel ? 'var(--accent)' : 'transparent'}`,
+                  boxShadow: sel ? 'inset 3px 0 0 var(--accent)' : undefined,
                 }}
                 className="flex items-center border-b border-gray-100 hover:bg-gray-50/80 transition-colors select-none"
                 onDoubleClick={() => setOverlay(file.path)}
@@ -382,7 +393,7 @@ export default function ExplorerView() {
                   />
                 </div>
                 <div className="flex-1 px-2 text-sm truncate flex items-center gap-2">
-                  <Music size={13} className="shrink-0 text-gray-300"/>
+                  <Music size={13} className="shrink-0 text-gray-400"/>
                   {renaming === file.path.split('/').pop() ? (
                     <input
                       autoFocus
