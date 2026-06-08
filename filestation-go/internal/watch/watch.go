@@ -30,10 +30,13 @@ func Start(basePath string, notify scan.NotifyFunc) (*Watcher, error) {
 
 	watcher := &Watcher{base: filepath.Clean(basePath), w: w, notify: notify, done: make(chan struct{})}
 
-	// Nur Root überwachen (keine Unterordner) – verhindert, dass Windows
-	// Umbenennungen von Unterordnern blockiert (ReadDirectoryChangesW-Handle).
-	// Änderungen in Unterordnern erkennt der Reconcile-Loop.
-	w.Add(basePath)
+	// Alle vorhandenen Unterordner rekursiv überwachen
+	filepath.WalkDir(basePath, func(p string, d os.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			w.Add(p)
+		}
+		return nil
+	})
 
 	go watcher.loop()
 	go watcher.reconcileLoop()
@@ -70,6 +73,13 @@ func (watcher *Watcher) handleEvent(event fsnotify.Event) {
 			return
 		}
 		if fi.IsDir() {
+			// Neuen Ordner und alle Unterordner sofort überwachen
+			filepath.WalkDir(path, func(p string, d os.DirEntry, err error) error {
+				if err == nil && d.IsDir() {
+					watcher.w.Add(p)
+				}
+				return nil
+			})
 			watcher.debounce(path+":dir", 1*time.Second, func() {
 				watcher.scanDir(path)
 				watcher.reconcile()
@@ -110,6 +120,15 @@ func (watcher *Watcher) debounce(key string, delay time.Duration, fn func()) {
 	watcher.timers.Store(key, timer)
 }
 
+// notifyDone sendet ein einzelnes "done:"-SSE nach 500 ms Stille —
+// bündelt mehrere schnelle DB-Änderungen zu einer einzigen Frontend-Aktualisierung.
+func (watcher *Watcher) notifyDone() {
+	watcher.debounce("__done__", 500*time.Millisecond, func() {
+		count, _ := db.Count()
+		watcher.notify("done:" + itoa(count))
+	})
+}
+
 func (watcher *Watcher) upsert(path string) {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -122,8 +141,7 @@ func (watcher *Watcher) upsert(path string) {
 		return
 	}
 	db.Upsert(f)
-	count, _ := db.Count()
-	watcher.notify("done:" + itoa(count))
+	watcher.notifyDone()
 	slog.Info("Watchdog: Datei aktualisiert", "datei", filepath.Base(path))
 }
 
@@ -134,8 +152,7 @@ func (watcher *Watcher) deleteFile(path string) {
 		return
 	}
 	db.Delete(rel)
-	count, _ := db.Count()
-	watcher.notify("done:" + itoa(count))
+	watcher.notifyDone()
 	slog.Info("Watchdog: Datei gelöscht", "datei", filepath.Base(path))
 }
 
@@ -143,8 +160,7 @@ func (watcher *Watcher) deleteDir(dirPath string) {
 	rel := filepath.ToSlash(strings.TrimPrefix(dirPath, watcher.base+string(os.PathSeparator)))
 	n, _ := db.DeletePrefix(rel + "/")
 	if n > 0 {
-		count, _ := db.Count()
-		watcher.notify("done:" + itoa(count))
+		watcher.notifyDone()
 		slog.Info("Watchdog: Ordner gelöscht", "ordner", filepath.Base(dirPath), "dateien", n)
 	}
 }
@@ -168,6 +184,7 @@ func (watcher *Watcher) scanDir(dirPath string) {
 	})
 	if len(batch) > 0 {
 		db.UpsertBatch(batch)
+		watcher.notifyDone()
 		slog.Info("Watchdog: Ordner gescannt", "ordner", filepath.Base(dirPath), "dateien", len(batch))
 	}
 }
@@ -197,13 +214,12 @@ func (watcher *Watcher) reconcile() {
 		}
 	}
 	if changed {
-		count, _ := db.Count()
-		watcher.notify("done:" + itoa(count))
+		watcher.notifyDone()
 	}
 }
 
 func (watcher *Watcher) reconcileLoop() {
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {

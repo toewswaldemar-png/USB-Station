@@ -39,6 +39,7 @@ export default function CalendarView() {
   const [month, setMonth] = useState(() => loadCalMonth().month)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [slideDir, setSlideDir] = useState<'next' | 'prev'>('next')
+  const navigated = useRef(false)
   const settings = useUISettingsStore(s => s.settings)
   const filesByYearMonth = useFilesStore(s => s.filesByYearMonth)
   const { selectedFiles, toggleGroup } = useSelectionStore()
@@ -66,11 +67,13 @@ export default function CalendarView() {
   }, [year, month])
 
   function goPrev() {
+    navigated.current = true
     setSlideDir('prev')
     if (month === 0) { setYear(y => y - 1); setMonth(11) }
     else setMonth(m => m - 1)
   }
   function goNext() {
+    navigated.current = true
     setSlideDir('next')
     if (month === 11) { setYear(y => y + 1); setMonth(0) }
     else setMonth(m => m + 1)
@@ -78,6 +81,7 @@ export default function CalendarView() {
   function goToday() {
     const toY = today.getFullYear(), toM = today.getMonth()
     if (toY === year && toM === month) return
+    navigated.current = true
     setSlideDir(toY > year || (toY === year && toM > month) ? 'next' : 'prev')
     setYear(toY); setMonth(toM)
   }
@@ -123,9 +127,11 @@ export default function CalendarView() {
 
   const SPEED_MS: Record<string, string> = { slow: '0.6s', normal: '0.3s', fast: '0.15s' }
   const monthAnimDur = SPEED_MS[settings.calAnimSpeed] ?? '0.3s'
-  const monthAnimClass = settings.calAnimation === 'slide'
-    ? (slideDir === 'next' ? 'cal-month-next' : 'cal-month-prev')
-    : `cal-anim-${settings.calAnimation}`
+  const monthAnimClass = navigated.current
+    ? (settings.calAnimation === 'slide'
+        ? (slideDir === 'next' ? 'cal-month-next' : 'cal-month-prev')
+        : `cal-anim-${settings.calAnimation}`)
+    : ''
 
   function groupStatus(files: AudioFile[]): 'none' | 'partial' | 'full' {
     const sel = files.filter(f => selectedFiles.has(f.path)).length
@@ -137,9 +143,6 @@ export default function CalendarView() {
   return (
     <div
       className="flex flex-col h-full bg-gray-100"
-      style={{ touchAction: 'pan-y' }}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
     >
       {/* Monatsnavigation */}
       <div className="flex items-center justify-center px-4 py-3 bg-gray-100 shrink-0 gap-2">
@@ -199,7 +202,12 @@ export default function CalendarView() {
       </div>
 
       {/* Kalender-Grid */}
-      <div className="flex-1 overflow-hidden bg-white">
+      <div
+        className="flex-1 overflow-hidden bg-white"
+        style={{ touchAction: 'pan-y' }}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+      >
         <div
           key={`${year}-${month}`}
           className={`grid grid-cols-7 h-full border-t border-l border-gray-100 ${monthAnimClass}`}
@@ -242,7 +250,7 @@ export default function CalendarView() {
                   entrySize={settings.entrySize}
                   compact={false}
                   bold={false}
-                  animation={settings.calAnimation}
+                  animation={navigated.current ? settings.calAnimation : 'none'}
                   animSpeed={settings.calAnimSpeed}
                   amPmSplit={settings.amPmSplit}
                   groupStatus={groupStatus}
