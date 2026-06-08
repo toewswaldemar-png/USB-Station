@@ -14,29 +14,24 @@ import (
 )
 
 type Watcher struct {
-	base   string
-	w      *fsnotify.Watcher
-	timers sync.Map // key → *time.Timer
-	notify scan.NotifyFunc
-	done   chan struct{}
+	base        string
+	w           *fsnotify.Watcher
+	timers      sync.Map // key → *time.Timer
+	notify      scan.NotifyFunc
+	onDirChange func(string) // wird mit dem Elternordner jedes FS-Events aufgerufen
+	done        chan struct{}
 }
 
 // Start überwacht basePath rekursiv auf Dateiänderungen.
-func Start(basePath string, notify scan.NotifyFunc) (*Watcher, error) {
+func Start(basePath string, notify scan.NotifyFunc, onDirChange func(string)) (*Watcher, error) {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 
-	watcher := &Watcher{base: filepath.Clean(basePath), w: w, notify: notify, done: make(chan struct{})}
+	watcher := &Watcher{base: filepath.Clean(basePath), w: w, notify: notify, onDirChange: onDirChange, done: make(chan struct{})}
 
-	// Alle vorhandenen Unterordner rekursiv überwachen
-	filepath.WalkDir(basePath, func(p string, d os.DirEntry, err error) error {
-		if err == nil && d.IsDir() {
-			w.Add(p)
-		}
-		return nil
-	})
+	watcher.setupWatcher(filepath.Clean(basePath))
 
 	go watcher.loop()
 	go watcher.reconcileLoop()
@@ -66,6 +61,10 @@ func (watcher *Watcher) handleEvent(event fsnotify.Event) {
 	path := filepath.Clean(event.Name)
 	isMP3 := strings.HasSuffix(strings.ToLower(path), ".mp3")
 
+	if watcher.onDirChange != nil {
+		watcher.onDirChange(filepath.Dir(path))
+	}
+
 	switch {
 	case event.Has(fsnotify.Create):
 		fi, err := os.Stat(path)
@@ -73,13 +72,7 @@ func (watcher *Watcher) handleEvent(event fsnotify.Event) {
 			return
 		}
 		if fi.IsDir() {
-			// Neuen Ordner und alle Unterordner sofort überwachen
-			filepath.WalkDir(path, func(p string, d os.DirEntry, err error) error {
-				if err == nil && d.IsDir() {
-					watcher.w.Add(p)
-				}
-				return nil
-			})
+			watcher.addNewDir(path)
 			watcher.debounce(path+":dir", 1*time.Second, func() {
 				watcher.scanDir(path)
 				watcher.reconcile()

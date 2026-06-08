@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -31,20 +32,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	// DirService: cached directory listings (30 s TTL, fsnotify invalidation).
-	dirSvc, err := dirfs.New(30 * time.Second)
-	if err != nil {
-		slog.Warn("DirService konnte nicht gestartet werden", "err", err)
-		// Non-fatal: api.Open falls back to a direct os.ReadDir if dirSvc is nil.
-	}
+	// DirService: cached directory listings (30 s TTL, invalidation via onDirChange).
+	dirSvc := dirfs.New(30 * time.Second)
 
 	hub := sse.NewHub()
+
+	// dirInvalidate: called by watch.go for every FS event (parent dir of changed path).
+	// Invalidates the cache entry and sends a debounced SSE so the frontend re-fetches.
+	var dirNotifyTimer sync.Map
+	dirInvalidate := func(path string) {
+		dirSvc.InvalidateDir(path)
+		if t, ok := dirNotifyTimer.Load("__dir__"); ok {
+			t.(*time.Timer).Stop()
+		}
+		timer := time.AfterFunc(200*time.Millisecond, func() {
+			dirNotifyTimer.Delete("__dir__")
+			hub.Notify("dir_invalidated")
+		})
+		dirNotifyTimer.Store("__dir__", timer)
+	}
+
 	mux := http.NewServeMux()
 	api.InitDirService(dirSvc)
-	if dirSvc != nil {
-		// Externe FS-Änderungen (fsnotify im DirService) sofort per SSE melden.
-		dirSvc.SetNotify(hub.Notify)
-	}
 	api.Register(mux, hub)
 
 	// SPA-Fallback: eingebettetes web/ Verzeichnis
@@ -75,7 +84,7 @@ func main() {
 					db.BumpVersion()
 				}
 				hub.Notify(msg)
-			})
+			}, dirInvalidate)
 			if err != nil {
 				slog.Warn("Watchdog konnte nicht gestartet werden", "err", err)
 			}
@@ -99,9 +108,7 @@ func main() {
 		if watcher != nil {
 			watcher.Close()
 		}
-		if dirSvc != nil {
-			dirSvc.Close()
-		}
+		dirSvc.Close()
 		shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		srv.Shutdown(shutCtx)
