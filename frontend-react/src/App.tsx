@@ -9,6 +9,7 @@ import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import CalendarView from '@/components/calendar/CalendarView'
 import ExplorerView from '@/components/explorer/ExplorerView'
+import { invalidateExplorerCache } from '@/components/explorer/explorerCache'
 import SettingsView from '@/components/settings/SettingsView'
 
 const ACTIVE_TAB_KEY = 'fs_activeTab'
@@ -33,7 +34,13 @@ export default function App() {
   // SSE
   useSSE((data) => {
     setSseMsg({ data })
-    if (data.startsWith('done:')) refreshFiles()
+    if (data.startsWith('done:')) {
+      refreshFiles()
+      invalidateExplorerCache()
+    }
+    if (data === 'dir_invalidated') {
+      invalidateExplorerCache()
+    }
     if (data === 'ui_settings') loadUI()
     if (data === 'connected') {
       setTimeout(() => {
@@ -67,13 +74,13 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <Header onOpenSettings={() => setSettingsOpen(true)} />
+      <Header
+        activeTab={activeTab}
+        onTabChange={switchTab}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          activeTab={activeTab}
-          onTabChange={switchTab}
-          sseMsg={sseMsg}
-        />
+        <Sidebar sseMsg={sseMsg} />
         <main className="flex-1 overflow-hidden">
           <ErrorBoundary FallbackComponent={ErrorFallback}>
             {activeTab === 'calendar' ? <CalendarView /> : <ExplorerView />}

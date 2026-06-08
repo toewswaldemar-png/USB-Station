@@ -1,13 +1,14 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
 import { useFilesStore } from '@/stores/filesStore'
 import { useSelectionStore } from '@/stores/selectionStore'
-import { useConfigStore } from '@/stores/configStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
 import FileOverlay from './FileOverlay'
+import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs } from './explorerCache'
+import type { DirEntry } from './explorerCache'
 
 const COL_KEY = 'fs_colWidths'
 
@@ -21,22 +22,25 @@ function saveColWidths(w: Record<string, number>) {
 type SortBy = 'name' | 'date'
 type SortDir = 'asc' | 'desc'
 const SORT_KEY = 'fs_sort'
+const PATH_KEY = 'fs_path'
 
-interface DirEntry { name: string; is_dir: boolean; size: number }
+function loadSavedPath(): string[] {
+  try { return JSON.parse(localStorage.getItem(PATH_KEY) || '[]') } catch { return [] }
+}
 
 export default function ExplorerView() {
   const allFiles = useFilesStore(s => s.allFiles)
   const { selectedFiles, toggleFile } = useSelectionStore()
-  const audioPath = useConfigStore(s => s.config.audio_path)
   const settings = useUISettingsStore(s => s.settings)
 
-  const [path, setPath] = useState<string[]>([])
-  const [history, setHistory] = useState<string[][]>([[]])
+  const [path, setPath] = useState<string[]>(loadSavedPath)
+  const [history, setHistory] = useState<string[][]>(() => [loadSavedPath()])
   const [histIdx, setHistIdx] = useState(0)
   const [search, setSearch] = useState('')
   const [overlay, setOverlay] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
+  // Beim Seitenneuladen ist der Cache leer → Skeleton bis fetchDir antwortet.
   const [dirEntries, setDirEntries] = useState<DirEntry[] | null>(null)
   const [colWidths, setColWidths] = useState<Record<string, number>>(loadColWidths)
   const [sort, setSort] = useState<{ by: SortBy; dir: SortDir }>(() => {
@@ -51,23 +55,50 @@ export default function ExplorerView() {
   const rbStart = useRef<{ x: number; y: number } | null>(null)
 
   const swipeStart = useRef(0)
+  const navId = useRef(0)
 
-  const navigate = useCallback(async (newPath: string[]) => {
+  const navigate = useCallback((newPath: string[]) => {
+    const key = newPath.join('/')
+    const id = ++navId.current
     setPath(newPath)
     setSearch('')
-    if (newPath[0] === '__cloud__') return
-    if (audioPath) {
-      const rel = newPath.join('/')
-      const res = await fetch(`/api/open?path=${encodeURIComponent(rel || '.')}`)
-      if (res.ok) {
-        const data = await res.json()
-        if (Array.isArray(data)) setDirEntries(data as DirEntry[])
-        else setDirEntries(null)
-      }
-    }
-  }, [audioPath])
+    if (newPath[0] === '__cloud__') { setDirEntries(null); return }
 
-  useEffect(() => { navigate([]) }, [navigate])
+    // SWR: gecachten Stand sofort anzeigen (null → Skeleton).
+    // Parallel immer vom Server holen — DirService antwortet aus seinem Cache
+    // in 1–5 ms, beim ersten Zugriff etwas länger.
+    setDirEntries(getCachedDir(key))
+    fetchDir(key).then(data => {
+      if (navId.current !== id) return
+      if (data) setDirEntries(data)
+      else if (key) navigate([]) // Pfad nicht mehr erreichbar (gelöscht/umbenannt) → Root
+    })
+  }, [])
+
+  // Beim ersten Mount: gespeicherten Pfad wiederherstellen + Server-Refresh starten.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { navigate(path) }, [])
+
+  // Bei Cache-Invalidierung (SSE done:) aktuelles Verzeichnis neu laden
+  const pathRef = useRef(path)
+  pathRef.current = path
+  useEffect(() => onCacheInvalidated(() => {
+    fetchDir(pathRef.current.join('/')).then(data => {
+      if (data) setDirEntries(data)
+    })
+  }), [])
+
+  // Aktuellen Pfad persistieren — wird beim Neuladen wiederhergestellt.
+  useEffect(() => {
+    localStorage.setItem(PATH_KEY, JSON.stringify(path))
+  }, [path])
+
+  // Prefetch: Unterordner der aktuellen Ebene im Hintergrund vorladen.
+  // Limit: max. 3 gleichzeitig, max. 8 Unterordner (NAS-Schutz — siehe explorerCache.ts).
+  useEffect(() => {
+    if (!dirEntries || isCloud) return
+    prefetchSubdirs(currentFolder, dirEntries)
+  }, [dirEntries, currentFolder, isCloud])
 
   function pushPath(newPath: string[]) {
     const next = history.slice(0, histIdx + 1)
@@ -86,37 +117,55 @@ export default function ExplorerView() {
 
   type Row = { type: 'dir'; name: string; size: number } | { type: 'file'; file: AudioFile }
 
-  let rows: Row[] = []
-  if (isCloud) {
-    // Cloud-Modus: wird separat behandelt
-  } else if (dirEntries !== null) {
-    const filtered = dirEntries.filter(e =>
-      !search || e.name.toLowerCase().includes(search.toLowerCase())
-    )
-    const dirs = filtered.filter(e => e.is_dir).sort((a, b) => a.name.localeCompare(b.name))
-    const files = filtered.filter(e => !e.is_dir)
-    rows = [
-      ...dirs.map(d => ({ type: 'dir' as const, name: d.name, size: d.size })),
-      ...files.map(f => {
-        const rel = [...path, f.name].join('/')
-        const dbFile = allFiles.find(af => af.path === rel)
-        return { type: 'file' as const, file: dbFile ?? { path: rel, title: f.name, date: '', folder: '', artist: '', album: '', size: f.size, mtime: 0 } }
-      }),
+  // Einziger O(n)-Pass über allFiles — baut gleichzeitig:
+  //   filesByPath    → O(1) Lookup für Metadaten-Anreicherung (Titel, Datum, …)
+  //   folderFilesMap → O(1) Ordner-Children für Ordner-Checkboxen
+  //   scopeFiles     → für "Alle auswählen"-Checkbox
+  //
+  // Einzige Quelle für die angezeigte Liste: dirEntries (von /api/open).
+  // Kein DB-Fallback mehr — bei dirEntries === null zeigt das JSX ein Skeleton.
+  const { rows, folderFilesMap, scopeFiles } = useMemo(() => {
+    type Result = { rows: Row[]; folderFilesMap: Map<string, AudioFile[]>; scopeFiles: AudioFile[] }
+    if (isCloud || dirEntries === null) return { rows: [], folderFilesMap: new Map(), scopeFiles: [] } as Result
+
+    const searchLower = search.toLowerCase()
+    const prefix = currentFolder ? currentFolder + '/' : ''
+
+    const filesByPath = new Map<string, AudioFile>()
+    const folderFilesMap = new Map<string, AudioFile[]>()
+    const scopeFiles: AudioFile[] = []
+
+    for (const f of allFiles) {
+      filesByPath.set(f.path, f)
+      if (prefix && !f.path.startsWith(prefix)) continue
+      const rest = f.path.slice(prefix.length)
+      if (!rest) continue
+      scopeFiles.push(f)
+      const slash = rest.indexOf('/')
+      if (slash !== -1) {
+        const dir = rest.slice(0, slash)
+        const bucket = folderFilesMap.get(dir)
+        if (bucket) bucket.push(f)
+        else folderFilesMap.set(dir, [f])
+      }
+    }
+
+    const filtered = dirEntries.filter(e => !search || e.name.toLowerCase().includes(searchLower))
+    const mul = sort.dir === 'asc' ? 1 : -1
+    const rows: Row[] = [
+      ...filtered.filter(e => e.is_dir)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(d => ({ type: 'dir' as const, name: d.name, size: d.size })),
+      ...filtered.filter(e => !e.is_dir)
+        .map(f => {
+          const rel = [...path, f.name].join('/')
+          return { type: 'file' as const, file: filesByPath.get(rel) ?? { path: rel, title: f.name, date: '', folder: '', artist: '', album: '', size: f.size, mtime: 0 } }
+        })
+        .sort((a, b) => sort.by === 'date' ? mul * a.file.date.localeCompare(b.file.date) : mul * a.file.title.localeCompare(b.file.title)),
     ]
-  } else {
-    const filesInFolder = currentFolder
-      ? allFiles.filter(f => f.path.startsWith(currentFolder + '/'))
-      : allFiles
-    const filtered = filesInFolder.filter(f =>
-      !search || f.title.toLowerCase().includes(search.toLowerCase()) || f.path.toLowerCase().includes(search.toLowerCase())
-    )
-    const sorted = [...filtered].sort((a, b) => {
-      const mul = sort.dir === 'asc' ? 1 : -1
-      if (sort.by === 'date') return mul * a.date.localeCompare(b.date)
-      return mul * a.title.localeCompare(b.title)
-    })
-    rows = sorted.map(f => ({ type: 'file' as const, file: f }))
-  }
+
+    return { rows, folderFilesMap, scopeFiles } as Result
+  }, [isCloud, dirEntries, allFiles, currentFolder, path, search, sort])
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -199,11 +248,8 @@ export default function ExplorerView() {
       <div className="flex items-center border-b border-gray-100 bg-gray-50 shrink-0 text-xs font-semibold text-gray-500 tracking-wide select-none">
         <div className="w-8 pl-2">
           <input type="checkbox" onChange={e => {
-            const scope = currentFolder
-              ? allFiles.filter(f => f.path.startsWith(currentFolder + '/'))
-              : allFiles
-            if (e.target.checked) scope.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
-            else scope.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
+            if (e.target.checked) scopeFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+            else scopeFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
           }} className="accent-[var(--accent)]"/>
         </div>
         <button className="flex-1 px-2 py-2 text-left flex items-center gap-1 hover:text-gray-800 transition-colors" onClick={() => toggleSort('name')}>
@@ -228,7 +274,7 @@ export default function ExplorerView() {
         <div style={{ width: colW('size', 80) }} className="px-2 py-2 shrink-0 text-right">Größe</div>
       </div>
 
-      {/* Virtualisierte Liste */}
+      {/* Virtualisierte Liste — oder Skeleton beim ersten Laden */}
       <div
         ref={parentRef}
         className="flex-1 overflow-y-auto"
@@ -257,13 +303,28 @@ export default function ExplorerView() {
           document.addEventListener('mouseup', onUp)
         }}
       >
+        {/* Skeleton: sichtbar solange dirEntries noch nicht geladen ist */}
+        {dirEntries === null && (
+          <div aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => (
+              <div key={i} className="flex items-center border-b border-gray-100" style={{ height: 36 }}>
+                <div className="w-8" />
+                <div
+                  className="h-3 rounded-md bg-gray-100 animate-pulse"
+                  style={{ width: `${40 + (i * 17) % 38}%` }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={{ height: virtualizer.getTotalSize() + 'px', position: 'relative' }}>
           {virtualizer.getVirtualItems().map(vi => {
             const row = rows[vi.index]
             if (!row) return null
 
             if (row.type === 'dir') {
-              const folderFiles = allFiles.filter(f => f.path.startsWith([...path, row.name].join('/') + '/'))
+              const folderFiles = folderFilesMap.get(row.name) ?? []
               const allSel = folderFiles.length > 0 && folderFiles.every(f => selectedFiles.has(f.path))
               const someSel = folderFiles.some(f => selectedFiles.has(f.path))
               return (

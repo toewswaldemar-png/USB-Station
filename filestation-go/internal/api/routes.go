@@ -2,18 +2,22 @@ package api
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"filestation/internal/config"
 	"filestation/internal/db"
+	dirfs "filestation/internal/fs"
 	"filestation/internal/scan"
 	"filestation/internal/sse"
 	"filestation/internal/usb"
@@ -22,6 +26,15 @@ import (
 )
 
 var hub *sse.Hub
+
+// dirSvc is the shared DirService instance, set by InitDirService in main.go.
+var dirSvc *dirfs.DirService
+
+// InitDirService wires the DirService into the api package.
+// Must be called before the HTTP server starts.
+func InitDirService(svc *dirfs.DirService) {
+	dirSvc = svc
+}
 
 func Register(mux *http.ServeMux, h *sse.Hub) {
 	hub = h
@@ -33,6 +46,7 @@ func Register(mux *http.ServeMux, h *sse.Hub) {
 	mux.HandleFunc("POST /api/scan/cancel", ScanCancel)
 	mux.HandleFunc("GET /api/stream", Stream)
 	mux.HandleFunc("GET /api/open", Open)
+	mux.HandleFunc("GET /api/browse", Browse) // paginated + sorted + filtered + cached
 	mux.HandleFunc("POST /api/save", Save)
 	mux.HandleFunc("POST /api/rename", Rename)
 	mux.HandleFunc("POST /api/copy", Copy)
@@ -142,7 +156,12 @@ func Stream(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, full)
 }
 
-// ── /api/open ────────────────────────────────────────────────────────────────
+// ── /api/open ─────────────────────────────────────────────────────────────────
+//
+// Backward-compatible endpoint used by the existing frontend.
+// For directories the response is the legacy flat array format.
+// Internally it now uses DirService so results are cached and
+// os.ReadDir is only called on the first access (or after a change).
 
 func Open(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Query().Get("path")
@@ -153,42 +172,54 @@ func Open(w http.ResponseWriter, r *http.Request) {
 	cfg := config.Load()
 	full := filepath.Join(cfg.AudioPath, filepath.FromSlash(p))
 
-	f, err := os.Open(full)
+	// Determine whether path is a file or directory with a single stat.
+	info, err := os.Stat(full)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
 	if info.IsDir() {
-		entries, err := os.ReadDir(full)
+		if dirSvc == nil {
+			http.Error(w, "DirService nicht verfügbar", http.StatusServiceUnavailable)
+			return
+		}
+		// Use DirService: cached, sorted by name, no pagination limit.
+		result, err := dirSvc.List(r.Context(), dirfs.ListRequest{
+			FullPath: full,
+			SortBy:   dirfs.SortName,
+			SortAsc:  true,
+		})
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				http.Error(w, "Anfrage abgebrochen", http.StatusRequestTimeout)
+				return
+			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		type entry struct {
+
+		// Keep the legacy array format so the existing frontend keeps working.
+		type legacyEntry struct {
 			Name  string `json:"name"`
 			IsDir bool   `json:"is_dir"`
 			Size  int64  `json:"size"`
 		}
-		var items []entry
-		for _, e := range entries {
-			fi, _ := e.Info()
-			size := int64(0)
-			if fi != nil {
-				size = fi.Size()
-			}
-			items = append(items, entry{Name: e.Name(), IsDir: e.IsDir(), Size: size})
+		items := make([]legacyEntry, len(result.Entries))
+		for i, e := range result.Entries {
+			items[i] = legacyEntry{Name: e.Name, IsDir: e.IsDir, Size: e.Size}
 		}
 		writeJSON(w, items)
 		return
 	}
+
+	// File: serve raw content as before.
+	f, err := os.Open(full)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
@@ -197,6 +228,70 @@ func Open(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Write(data)
+}
+
+// ── /api/browse ───────────────────────────────────────────────────────────────
+//
+// High-performance paginated directory listing with caching, server-side
+// sorting, and server-side filtering.
+//
+// Query parameters:
+//
+//	path    – relative path inside AudioPath (required)
+//	offset  – first entry index, 0-based (default 0)
+//	limit   – max entries per page (default 200; 0 = all)
+//	sort    – "name" | "size" | "modtime" | "type" (default "name")
+//	asc     – "true" | "false" (default "true")
+//	filter  – case-insensitive substring filter on filename
+func Browse(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+
+	p := q.Get("path")
+	if p == "" {
+		http.Error(w, "path fehlt", http.StatusBadRequest)
+		return
+	}
+	cfg := config.Load()
+	full := filepath.Join(cfg.AudioPath, filepath.FromSlash(p))
+
+	offset, _ := strconv.Atoi(q.Get("offset"))
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	if limit <= 0 {
+		limit = 200
+	}
+
+	sortBy := dirfs.SortField(q.Get("sort"))
+	switch sortBy {
+	case dirfs.SortSize, dirfs.SortModTime, dirfs.SortType:
+		// valid
+	default:
+		sortBy = dirfs.SortName
+	}
+	asc := q.Get("asc") != "false" // default true
+
+	if dirSvc == nil {
+		http.Error(w, "DirService nicht verfügbar", http.StatusServiceUnavailable)
+		return
+	}
+
+	result, err := dirSvc.List(r.Context(), dirfs.ListRequest{
+		FullPath: full,
+		Offset:   offset,
+		Limit:    limit,
+		SortBy:   sortBy,
+		SortAsc:  asc,
+		Filter:   q.Get("filter"),
+	})
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "Anfrage abgebrochen", http.StatusRequestTimeout)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, result)
 }
 
 // ── /api/save ────────────────────────────────────────────────────────────────
@@ -239,6 +334,10 @@ func Rename(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Cache der betroffenen Verzeichnisse invalidieren.
+	dirSvc.InvalidateDir(filepath.Dir(oldFull))
+	dirSvc.InvalidateDir(filepath.Dir(newFull))
 
 	// DB-Pfad aktualisieren
 	oldRel := req.OldPath
@@ -291,6 +390,8 @@ func Copy(w http.ResponseWriter, r *http.Request) {
 			hub.Notify(fmt.Sprintf("copy_progress:%d:%d:%d", pct, i+1, total))
 		}
 		hub.Notify(fmt.Sprintf("copy_done:%d", total))
+		// Zielverzeichnis nach dem Kopieren invalidieren.
+		dirSvc.InvalidateDir(req.Target)
 	}()
 
 	writeJSON(w, map[string]string{"status": "gestartet"})

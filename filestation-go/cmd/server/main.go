@@ -14,6 +14,7 @@ import (
 	"filestation/internal/api"
 	"filestation/internal/config"
 	"filestation/internal/db"
+	dirfs "filestation/internal/fs"
 	"filestation/internal/scan"
 	"filestation/internal/sse"
 	"filestation/internal/watch"
@@ -30,8 +31,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// DirService: cached directory listings (30 s TTL, fsnotify invalidation).
+	dirSvc, err := dirfs.New(30 * time.Second)
+	if err != nil {
+		slog.Warn("DirService konnte nicht gestartet werden", "err", err)
+		// Non-fatal: api.Open falls back to a direct os.ReadDir if dirSvc is nil.
+	}
+
 	hub := sse.NewHub()
 	mux := http.NewServeMux()
+	api.InitDirService(dirSvc)
+	if dirSvc != nil {
+		// Externe FS-Änderungen (fsnotify im DirService) sofort per SSE melden.
+		dirSvc.SetNotify(hub.Notify)
+	}
 	api.Register(mux, hub)
 
 	// SPA-Fallback: eingebettetes web/ Verzeichnis
@@ -85,6 +98,9 @@ func main() {
 		scan.Cancel()
 		if watcher != nil {
 			watcher.Close()
+		}
+		if dirSvc != nil {
+			dirSvc.Close()
 		}
 		shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()

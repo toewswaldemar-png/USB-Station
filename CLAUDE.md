@@ -81,7 +81,8 @@ go test ./internal/scan -v
 | `internal/api/routes.go` | All HTTP handler registrations (Go 1.22 `net/http` ServeMux with method+path patterns) |
 | `internal/db/db.go` | SQLite (WAL mode, `modernc.org/sqlite`). Table `files` keyed by relative path; atomic `_version` counter + ETag for cache invalidation |
 | `internal/scan/` | Incremental scan with 8-worker goroutine pool; `date.go` extracts dates (ISO → 8-digit → German `DD.MM.YYYY` → 6-digit → year-only → ID3 fallback); unit tests in `date_test.go` |
-| `internal/watch/watch.go` | `fsnotify` watcher with per-path debounce + 5-minute reconcile loop (safety net for missed events) |
+| `internal/fs/service.go` | `DirService`: cached directory listings (TTL + fsnotify), SWR background-refresh, per-directory RWMutex, `os.ReadDir`-based (never recursive). Used by `Open` and `Browse` handlers. |
+| `internal/watch/watch.go` | `fsnotify` watcher: watches all subdirs recursively, per-path debounce, 10-min reconcile loop (safety net). Fires `dir_invalidated` SSE via DirService callback on external FS changes. |
 | `internal/sse/sse.go` | Hub: `Register`/`Unregister` channels, `Notify()`, 30 s ping keepalive |
 | `internal/usb/` | Windows: `GetLogicalDrives`+`GetDriveTypeW` syscalls; Linux: glob `/media` |
 | `internal/config/config.go` | `config.json` + `ui_settings.json` with `sync.RWMutex` |
@@ -98,18 +99,23 @@ go test ./internal/scan -v
 React 19 + TypeScript + Zustand + Tailwind CSS v4.
 
 **Stores:**
-- `filesStore.ts` – all MP3 records; two-layer cache: IndexedDB (`idbGet`/`idbSet`) for instant load + `/api/version` check before network fetch. `set()` is called before `idbSet()` to avoid blocking on IDB errors.
+- `filesStore.ts` – all MP3 records; two-layer cache: IndexedDB (`idbGet`/`idbSet`) for instant load + `/api/version` check before network fetch. Also maintains a pre-built `filesByYearMonth: Map<ym, Map<groupKey, AudioFile[]>>` index used by `CalendarView`. `set()` is called before `idbSet()` to avoid blocking on IDB errors.
 - `selectionStore.ts` – selected file paths with group-level and file-level filter logic; `effectivePaths` is what gets copied
 - `uiSettingsStore.ts` – visual customization (color presets, fonts, calendar options); auto-saves with 400 ms debounce
 - `configStore.ts` – audio path and server config
 - `webdavStore.ts` – WebDAV directory listing and navigation state
 
+**Hooks (`src/hooks/`):**
+- `useSSE.ts` – opens `EventSource('/api/events')` with 3 s reconnect; called by `App.tsx` with a callback
+- `useUsbDrives.ts` – subscribes to USB SSE events and exposes the current drive list
+- `useClock.ts` – live clock ticker for the header
+
 **Key components:**
-- `App.tsx` – root layout; owns SSE connection (3 s reconnect); passes `sseMsg: { data: string }` prop (object wrapper, not plain string — ensures React re-renders even when two consecutive SSE messages carry identical text)
-- `CalendarView.tsx` – month grid; files grouped by `groupKey()` (date + folder name), max 2 entries per day cell
-- `ExplorerView.tsx` – folder tree browser with virtual scrolling (`@tanstack/react-virtual`) and rubber-band selection
-- `SettingsView.tsx` – overlay panel; uses `sseMsg` + `useRef(scanStarted)` to detect scan completion and call `refreshFiles()`
-- `SelectionPanel.tsx` – accordion list of selected groups in sidebar; one group open at a time
+- `App.tsx` – root layout; uses `useSSE` hook; handles `done:` → `refreshFiles()`, `ui_settings` → `loadUI()`, `connected` → `refreshFiles()` (if empty); passes `sseMsg: { data: string }` prop (object wrapper, not plain string — ensures React re-renders even when two consecutive SSE messages carry identical text)
+- `calendar/CalendarView.tsx` – month grid; reads `filesByYearMonth` from filesStore; files grouped by `groupKey()` (date + folder name), max 2 entries per day cell
+- `explorer/ExplorerView.tsx` – folder tree browser with virtual scrolling (`@tanstack/react-virtual`) and rubber-band selection
+- `settings/SettingsView.tsx` – overlay panel; uses `sseMsg` + `useRef(scanStarted)` to detect scan completion and call `refreshFiles()`
+- `sidebar/SelectionPanel.tsx` – accordion list of selected groups in sidebar; one group open at a time
 
 **Accent color**: CSS variables `--accent`, `--accent-l`, `--accent-xl` set globally from `uiSettingsStore.calColorPreset`. All themed elements use these variables.
 
@@ -129,13 +135,19 @@ Go + `go-webview2` (no CGO). Reads `fileclient.json` for `server_url`. Polls eve
 |---|---|---|
 | GET | `/api/files` | All indexed MP3s (gzip JSON, ETag-cached) |
 | GET | `/api/version` | DB version counter (cache check) |
-| GET | `/api/events` | SSE stream: `done:<count>`, `progress:<pct>:<done>:<total>`, `reload`, `usb`, `copy:...` |
+| GET | `/api/events` | SSE stream: `done:<count>`, `progress:<pct>:<done>:<total>`, `reload`, `usb:<json>`, `copy_progress:<pct>:<done>:<total>`, `copy_error:<rel>`, `copy_done:<total>`, `ui_settings`, `connected`, `client:<cmd>`, `dir_invalidated` |
 | GET | `/api/scan` | Trigger incremental rescan |
 | POST | `/api/scan/cancel` | Cancel running scan |
-| GET | `/api/stream?path=` | Stream an MP3 file |
+| GET | `/api/stream?path=` | Stream an MP3 file; prefix `__cloud__/` for WebDAV |
+| GET | `/api/open?path=` | Read text file content or directory listing (JSON, legacy flat array) — backed by DirService cache |
+| GET | `/api/browse?path=&offset=&limit=&sort=&asc=&filter=` | Paginated directory listing with server-side sort + filter; `sort`: `name`\|`size`\|`modtime`\|`type` |
+| POST | `/api/save` | Write text file content |
 | GET | `/api/usb` | List USB drives |
-| POST | `/api/copy` | Copy selected files to USB |
+| POST | `/api/copy` | Copy selected files to USB (async, progress via SSE) |
 | GET/POST | `/api/config` | Read/write config |
-| GET/POST | `/api/ui-settings` | Read/write UI settings |
-| POST | `/api/rename` | Rename file or folder (atomic DB update) |
+| GET/POST | `/api/ui-settings` | Read/write UI settings; POST broadcasts `ui_settings` SSE |
+| POST | `/api/rename` | Rename file or folder; updates DB + bumps version |
+| POST | `/api/auth` | Verify settings password (`{"password":"..."}` → `{"ok":bool}`) |
+| GET | `/api/pick-folder` | Native OS folder picker dialog (Windows: IFileDialog; other: no-op) |
+| POST | `/api/client-command` | Send `fullscreen`/`reload`/`exit` command to kiosk client via SSE |
 | GET | `/api/verse` | Daily Bible verse |
