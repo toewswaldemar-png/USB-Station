@@ -169,7 +169,11 @@ export default function ExplorerView() {
     const mul = sort.dir === 'asc' ? 1 : -1
     const rows: Row[] = [
       ...filtered.filter(e => e.is_dir)
-        .sort((a, b) => sort.by === 'size' ? mul * (a.size - b.size) : sort.by === 'date' ? mul * a.mod_time.localeCompare(b.mod_time) : mul * a.name.localeCompare(b.name))
+        .sort((a, b) => {
+          if (a.name === CLOUD_FOLDER) return -1
+          if (b.name === CLOUD_FOLDER) return 1
+          return sort.by === 'size' ? mul * (a.size - b.size) : sort.by === 'date' ? mul * a.mod_time.localeCompare(b.mod_time) : mul * a.name.localeCompare(b.name)
+        })
         .map(d => ({ type: 'dir' as const, name: d.name, size: d.size, modTime: d.mod_time })),
       ...filtered.filter(e => !e.is_dir)
         .map(f => {
