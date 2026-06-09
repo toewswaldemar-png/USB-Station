@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, Check, Minus } from 'lucide-react'
+import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, Check, Minus, Cloud } from 'lucide-react'
 import { useFilesStore } from '@/stores/filesStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
@@ -9,6 +9,7 @@ import type { AudioFile } from '@/types'
 import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs } from './explorerCache'
 import type { DirEntry } from './explorerCache'
 
+const CLOUD_FOLDER = 'Bruderschaft'
 const COL_KEY = 'fs_colWidths'
 
 function loadColWidths() {
@@ -44,7 +45,7 @@ export default function ExplorerView() {
     try { return JSON.parse(localStorage.getItem(SORT_KEY) || '{}') } catch { return { by: settings.sortBy as SortBy, dir: settings.sortDir as SortDir } }
   })
 
-  const isCloud = path[0] === '__cloud__'
+  const isCloud = path[0] === CLOUD_FOLDER
   const currentFolder = path.join('/')
 
   const parentRef = useRef<HTMLDivElement>(null)
@@ -59,7 +60,6 @@ export default function ExplorerView() {
     const key = newPath.join('/')
     const id = ++navId.current
     setSearch('')
-    if (newPath[0] === '__cloud__') { setPath(newPath); setDirEntries(null); return }
 
     const cached = getCachedDir(key)
     if (cached) {
@@ -136,10 +136,15 @@ export default function ExplorerView() {
   // Kein DB-Fallback mehr — bei dirEntries === null zeigt das JSX ein Skeleton.
   const { rows, folderFilesMap, scopeFiles } = useMemo(() => {
     type Result = { rows: Row[]; folderFilesMap: Map<string, AudioFile[]>; scopeFiles: AudioFile[] }
-    if (isCloud || dirEntries === null) return { rows: [], folderFilesMap: new Map(), scopeFiles: [] } as Result
+    if (dirEntries === null) return { rows: [], folderFilesMap: new Map(), scopeFiles: [] } as Result
 
     const searchLower = search.toLowerCase()
     const prefix = currentFolder ? currentFolder + '/' : ''
+
+    // Virtuellen "Bruderschaft"-Ordner am Root injizieren
+    const effectiveDirEntries = (path.length === 0)
+      ? [{ name: CLOUD_FOLDER, is_dir: true, size: 0, mod_time: '' }, ...dirEntries]
+      : dirEntries
 
     const filesByPath = new Map<string, AudioFile>()
     const folderFilesMap = new Map<string, AudioFile[]>()
@@ -160,7 +165,7 @@ export default function ExplorerView() {
       }
     }
 
-    const filtered = dirEntries.filter(e => !search || e.name.toLowerCase().includes(searchLower))
+    const filtered = effectiveDirEntries.filter(e => !search || e.name.toLowerCase().includes(searchLower))
     const mul = sort.dir === 'asc' ? 1 : -1
     const rows: Row[] = [
       ...filtered.filter(e => e.is_dir)
@@ -175,7 +180,7 @@ export default function ExplorerView() {
     ]
 
     return { rows, folderFilesMap, scopeFiles } as Result
-  }, [isCloud, dirEntries, allFiles, currentFolder, path, search, sort])
+  }, [dirEntries, allFiles, currentFolder, path, search, sort])
 
   const nameColWidth = useMemo(() => {
     if (!rows.length) return undefined
@@ -265,7 +270,7 @@ export default function ExplorerView() {
                 className={`px-2 py-1 rounded-full text-sm font-semibold transition-colors
                   ${i === path.length - 1 ? 'bg-white text-gray-900' : 'text-gray-400 hover:bg-white hover:text-gray-900'}`}
               >
-                {seg === '__cloud__' ? '☁ Cloud' : seg}
+                {seg === CLOUD_FOLDER ? '☁ ' + seg : seg}
               </button>
             </span>
           ))}
@@ -410,7 +415,9 @@ export default function ExplorerView() {
                     </span>
                   </label>
                   <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm flex items-center gap-2`}>
-                    <Folder size={15} className="shrink-0 text-gray-400"/>
+                    {(isCloud || row.name === CLOUD_FOLDER)
+                      ? <Cloud size={15} className="shrink-0 text-blue-400"/>
+                      : <Folder size={15} className="shrink-0 text-gray-400"/>}
                     <span className="text-gray-700 truncate">{row.name}</span>
                   </div>
                   <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>

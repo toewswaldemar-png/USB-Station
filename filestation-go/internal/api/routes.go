@@ -147,8 +147,9 @@ func Stream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "path fehlt", http.StatusBadRequest)
 		return
 	}
-	if strings.HasPrefix(p, "__cloud__/") {
-		webdav.Stream(w, r, strings.TrimPrefix(p, "__cloud__/"))
+	// Virtueller "Bruderschaft"-Ordner → WebDAV-Stream
+	if strings.HasPrefix(p, "Bruderschaft/") {
+		webdav.Stream(w, r, strings.TrimPrefix(p, "Bruderschaft/"))
 		return
 	}
 	cfg := config.Load()
@@ -169,7 +170,39 @@ func Open(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "path fehlt", http.StatusBadRequest)
 		return
 	}
+
 	cfg := config.Load()
+
+	// Virtueller "Bruderschaft"-Ordner → WebDAV-Listing
+	if p == "Bruderschaft" || strings.HasPrefix(p, "Bruderschaft/") {
+		if cfg.WebDavURL == "" {
+			http.Error(w, "WebDAV nicht konfiguriert", http.StatusNotFound)
+			return
+		}
+		sub := strings.TrimPrefix(strings.TrimPrefix(p, "Bruderschaft"), "/")
+		items, err := webdav.List(sub)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		type cloudEntry struct {
+			Name    string `json:"name"`
+			IsDir   bool   `json:"is_dir"`
+			Size    int64  `json:"size"`
+			ModTime string `json:"mod_time"`
+		}
+		out := make([]cloudEntry, 0, len(items))
+		for _, item := range items {
+			modStr := item.Modified
+			if t, terr := http.ParseTime(item.Modified); terr == nil {
+				modStr = t.UTC().Format("2006-01-02T15:04:05Z")
+			}
+			out = append(out, cloudEntry{Name: item.Name, IsDir: item.IsDir, Size: item.Size, ModTime: modStr})
+		}
+		writeJSON(w, out)
+		return
+	}
+
 	full := filepath.Join(cfg.AudioPath, filepath.FromSlash(p))
 
 	// Determine whether path is a file or directory with a single stat.
