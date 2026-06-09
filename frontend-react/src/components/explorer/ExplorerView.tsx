@@ -6,7 +6,6 @@ import { useSelectionStore } from '@/stores/selectionStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
-import FileOverlay from './FileOverlay'
 import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs } from './explorerCache'
 import type { DirEntry } from './explorerCache'
 
@@ -37,7 +36,6 @@ export default function ExplorerView() {
   const [history, setHistory] = useState<string[][]>(() => [loadSavedPath()])
   const [histIdx, setHistIdx] = useState(0)
   const [search, setSearch] = useState('')
-  const [overlay, setOverlay] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [dirEntries, setDirEntries] = useState<DirEntry[] | null>(() => getCachedDir(loadSavedPath().join('/')))
@@ -50,14 +48,12 @@ export default function ExplorerView() {
   const currentFolder = path.join('/')
 
   const parentRef = useRef<HTMLDivElement>(null)
-  const [rubberBand, setRubberBand] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
-  const rbStart = useRef<{ x: number; y: number } | null>(null)
-
   const swipeStartX = useRef(0)
   const swipeStartY = useRef(0)
   const swiping = useRef(false)
   const navId = useRef(0)
   const navDir = useRef<'next' | 'prev'>('next')
+  const didNavigate = useRef(false)
 
   const navigate = useCallback((newPath: string[]) => {
     const key = newPath.join('/')
@@ -113,6 +109,7 @@ export default function ExplorerView() {
 
   function pushPath(newPath: string[]) {
     if (newPath.join('/') === path.join('/')) return
+    didNavigate.current = true
     navDir.current = newPath.length > path.length ? 'next' : 'prev'
     const next = history.slice(0, histIdx + 1)
     next.push(newPath)
@@ -122,10 +119,10 @@ export default function ExplorerView() {
   }
 
   function goBack() {
-    if (histIdx > 0) { navDir.current = 'prev'; setHistIdx(h => h - 1); navigate(history[histIdx - 1]) }
+    if (histIdx > 0) { didNavigate.current = true; navDir.current = 'prev'; setHistIdx(h => h - 1); navigate(history[histIdx - 1]) }
   }
   function goForward() {
-    if (histIdx < history.length - 1) { navDir.current = 'next'; setHistIdx(h => h + 1); navigate(history[histIdx + 1]) }
+    if (histIdx < history.length - 1) { didNavigate.current = true; navDir.current = 'next'; setHistIdx(h => h + 1); navigate(history[histIdx + 1]) }
   }
 
   type Row = { type: 'dir'; name: string; size: number; modTime: string } | { type: 'file'; file: AudioFile }
@@ -336,7 +333,7 @@ export default function ExplorerView() {
             <div className="w-px h-4 bg-gray-300" />
           </div>
         </div>
-        <button style={{ width: colW('size', 80) }} className="px-2 py-2 shrink-0 text-right flex items-center justify-end gap-1 hover:text-gray-800 transition-colors" onClick={() => toggleSort('size')}>
+        <button style={{ width: colW('size', 80) }} className="px-2 py-2 shrink-0 flex items-center gap-1 hover:text-gray-800 transition-colors" onClick={() => toggleSort('size')}>
           Größe <span className="inline-flex w-3 justify-center">{sort.by === 'size' ? (sort.dir === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>) : null}</span>
         </button>
         <div className="flex-1" />
@@ -345,7 +342,7 @@ export default function ExplorerView() {
       {/* Virtualisierte Liste — oder Skeleton beim ersten Laden */}
       <div
         ref={parentRef}
-        className="flex-1 overflow-y-auto bg-white"
+        className="flex-1 overflow-y-auto overflow-x-hidden bg-white"
         style={{ touchAction: 'pan-y' }}
         onPointerDown={e => { swipeStartX.current = e.clientX; swipeStartY.current = e.clientY; swiping.current = true }}
         onPointerUp={e => {
@@ -383,7 +380,7 @@ export default function ExplorerView() {
 
         <div
           key={currentFolder}
-          className={settings.calAnimation === 'slide' ? (navDir.current === 'next' ? 'cal-month-next' : 'cal-month-prev') : `cal-anim-${settings.calAnimation}`}
+          className={didNavigate.current ? (settings.calAnimation === 'slide' ? (navDir.current === 'next' ? 'cal-month-next' : 'cal-month-prev') : `cal-anim-${settings.calAnimation}`) : ''}
           style={{ '--cal-dur': { slow: '0.6s', normal: '0.3s', fast: '0.15s' }[settings.calAnimSpeed] ?? '0.3s' } as React.CSSProperties}
         >
         <div style={{ height: virtualizer.getTotalSize() + 'px', position: 'relative' }}>
@@ -417,7 +414,7 @@ export default function ExplorerView() {
                     <span className="text-gray-700 truncate">{row.name}</span>
                   </div>
                   <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
-                  <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-right text-gray-700 shrink-0">
+                  <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-gray-700 shrink-0">
                     {folderFiles.length > 0 ? fmtBytes(folderFiles.reduce((s, f) => s + f.size, 0)) : <span className="text-gray-300 block text-center">–</span>}
                   </div>
                   <div className="flex-1" />
@@ -436,7 +433,6 @@ export default function ExplorerView() {
                   background: sel ? 'var(--accent-xl)' : undefined,
                 }}
                 className="flex items-center border-b border-gray-100 hover:bg-gray-100 transition-colors select-none"
-                onDoubleClick={() => setOverlay(file.path)}
                 onKeyDown={e => {
                   if (e.key === 'F2') { startRename(file.path.split('/').pop() ?? '') }
                 }}
@@ -468,7 +464,7 @@ export default function ExplorerView() {
                 <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">
                   {formatDate(file.date)}
                 </div>
-                <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-right text-gray-700 shrink-0">
+                <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-gray-700 shrink-0">
                   {fmtBytes(file.size)}
                 </div>
                 <div className="flex-1" />
@@ -481,13 +477,6 @@ export default function ExplorerView() {
 
       {/* Rubber-Band — ausgeklammert */}
 
-      {/* Datei-Overlay */}
-      {overlay && (
-        <FileOverlay
-          filePath={overlay}
-          onClose={() => setOverlay(null)}
-        />
-      )}
     </div>
   )
 }

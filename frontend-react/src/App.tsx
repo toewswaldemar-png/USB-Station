@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useFilesStore } from '@/stores/filesStore'
 import { useConfigStore } from '@/stores/configStore'
@@ -23,6 +23,7 @@ export default function App() {
     () => (localStorage.getItem(ACTIVE_TAB_KEY) as 'calendar' | 'explorer') || 'calendar'
   )
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const tabDirRef = useRef<'next' | 'prev'>('next')
   const [sseMsg, setSseMsg] = useState<{ data: string }>({ data: '' })
 
   const loadFiles = useFilesStore(s => s.loadFiles)
@@ -70,6 +71,8 @@ export default function App() {
   }, [settings, uiLoaded])
 
   function switchTab(tab: 'calendar' | 'explorer') {
+    tabDirRef.current = tab === 'explorer' ? 'next' : 'prev'
+    if (tab === 'explorer') localStorage.removeItem('fs_path')
     setActiveTab(tab)
     localStorage.setItem(ACTIVE_TAB_KEY, tab)
   }
@@ -85,7 +88,13 @@ export default function App() {
         <Sidebar sseMsg={sseMsg} />
         <main className="flex-1 overflow-hidden">
           <ErrorBoundary FallbackComponent={ErrorFallback}>
-            {activeTab === 'calendar' ? <CalendarView /> : <ExplorerView />}
+            <div
+              key={activeTab}
+              className={`h-full overflow-hidden ${settings.calAnimation === 'slide' ? (tabDirRef.current === 'next' ? 'cal-month-next' : 'cal-month-prev') : `cal-anim-${settings.calAnimation}`}`}
+              style={{ '--cal-dur': { slow: '0.6s', normal: '0.3s', fast: '0.15s' }[settings.calAnimSpeed] ?? '0.3s' } as React.CSSProperties}
+            >
+              {activeTab === 'calendar' ? <CalendarView /> : <ExplorerView />}
+            </div>
           </ErrorBoundary>
         </main>
       </div>
