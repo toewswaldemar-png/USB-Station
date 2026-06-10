@@ -41,6 +41,11 @@ export default function ExplorerView() {
   const [renameVal, setRenameVal] = useState('')
   const [dirEntries, setDirEntries] = useState<DirEntry[] | null>(() => getCachedDir(loadSavedPath().join('/')))
   const [colWidths, setColWidths] = useState<Record<string, number>>(loadColWidths)
+  const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set())
+  const [cloudFolderFiles, setCloudFolderFiles] = useState<Map<string, AudioFile[]>>(new Map())
+  // Direkt via list-recursive vollständig geladene Ordner. Nur diese dürfen allSel=true zeigen.
+  // Elternordner mit Merge-Teildaten zeigen – (someSel), bis sie selbst vollständig geladen werden.
+  const [completedCloudFolders, setCompletedCloudFolders] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState<{ by: SortBy; dir: SortDir }>(() => {
     try { return JSON.parse(localStorage.getItem(SORT_KEY) || '{}') } catch { return { by: settings.sortBy as SortBy, dir: settings.sortDir as SortDir } }
   })
@@ -158,12 +163,18 @@ export default function ExplorerView() {
       for (const e of dirEntries) {
         const rel = prefix + e.name
         if (e.is_dir) {
-          const cached = getCachedDir(rel)
-          if (cached) {
-            const files = cached
-              .filter(c => !c.is_dir)
-              .map(c => ({ path: rel + '/' + c.name, title: c.name, date: '', folder: rel, artist: '', album: '', size: c.size, mtime: 0 }) as AudioFile)
-            if (files.length > 0) folderFilesMap.set(e.name, files)
+          // cloudFolderFiles hat Vorrang (befüllt nach rekursivem Select), dann Explorer-Cache.
+          const cf = cloudFolderFiles.get(rel)
+          if (cf && cf.length > 0) {
+            folderFilesMap.set(e.name, cf)
+          } else {
+            const cached = getCachedDir(rel)
+            if (cached) {
+              const files = cached
+                .filter(c => !c.is_dir)
+                .map(c => ({ path: rel + '/' + c.name, title: c.name, date: '', folder: rel, artist: '', album: '', size: c.size, mtime: 0 }) as AudioFile)
+              if (files.length > 0) folderFilesMap.set(e.name, files)
+            }
           }
         } else {
           const synth: AudioFile = { path: rel, title: e.name, date: '', folder: currentFolder, artist: '', album: '', size: e.size, mtime: 0 }
@@ -207,7 +218,7 @@ export default function ExplorerView() {
     ]
 
     return { rows, folderFilesMap, scopeFiles } as Result
-  }, [dirEntries, allFiles, currentFolder, path, search, sort])
+  }, [dirEntries, allFiles, currentFolder, path, search, sort, cloudFolderFiles])
 
   const nameColWidth = useMemo(() => {
     if (!rows.length) return undefined
@@ -258,6 +269,57 @@ export default function ExplorerView() {
     })
     setRenaming(null)
     navigate(path)
+  }
+
+  async function selectCloudFolder(folderPath: string) {
+    setLoadingFolders(prev => { const s = new Set(prev); s.add(folderPath); return s })
+    try {
+      const res = await fetch(`/api/list-recursive?path=${encodeURIComponent(folderPath)}`)
+      if (!res.ok) return
+      const data: { path: string; name: string; size: number; mod_time: string }[] = await res.json()
+      const audioFiles = data.map(e => ({ path: e.path, title: e.name, date: e.mod_time.slice(0, 10), folder: folderPath, artist: '', album: '', size: e.size, mtime: 0 }) as AudioFile)
+      // Für jede Datei alle Vorfahren von Bruderschaft bis zum direkten Elternordner befüllen,
+      // damit Checkboxen auf jeder Navigationsebene (inkl. Elternordner) korrekt angezeigt werden.
+      const byFolder = new Map<string, AudioFile[]>()
+      audioFiles.forEach(f => {
+        const parts = f.path.split('/')
+        // parts[0] = "Bruderschaft" (überspringen) → i ab 1
+        for (let i = 1; i < parts.length - 1; i++) {
+          const key = parts.slice(0, i + 1).join('/')
+          const bucket = byFolder.get(key)
+          if (bucket) bucket.push(f)
+          else byFolder.set(key, [f])
+        }
+      })
+      // Merge statt Replace: vollständige Einträge (direkt geklickte Ordner) bleiben erhalten
+      setCloudFolderFiles(prev => {
+        const m = new Map(prev)
+        byFolder.forEach((newFiles, key) => {
+          const existing = m.get(key)
+          if (existing) {
+            const known = new Set(existing.map(f => f.path))
+            m.set(key, [...existing, ...newFiles.filter(f => !known.has(f.path))])
+          } else {
+            m.set(key, newFiles)
+          }
+        })
+        return m
+      })
+      // folderPath selbst + alle Unterordner als vollständig markieren.
+      // Das rekursive Fetch enthält deren vollständige Dateiliste.
+      // Elternordner NICHT markieren – sie haben ggf. noch unbekannte Geschwisterordner.
+      setCompletedCloudFolders(prev => {
+        const s = new Set(prev)
+        s.add(folderPath)
+        byFolder.forEach((_, key) => {
+          if (key.startsWith(folderPath + '/')) s.add(key)
+        })
+        return s
+      })
+      audioFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+    } finally {
+      setLoadingFolders(prev => { const s = new Set(prev); s.delete(folderPath); return s })
+    }
   }
 
   const COL_MINS: Record<string, number> = { name: 80, date: 155, size: 60 }
@@ -422,7 +484,12 @@ export default function ExplorerView() {
 
             if (row.type === 'dir') {
               const folderFiles = folderFilesMap.get(row.name) ?? []
-              const allSel = folderFiles.length > 0 && folderFiles.every(f => selectedFiles.has(f.path))
+              const folderPath = currentFolder ? `${currentFolder}/${row.name}` : row.name
+              const isLoading = loadingFolders.has(folderPath)
+              // Cloud-Ordner zeigt ✓ nur wenn vollständig geladen (direkt via list-recursive).
+              // Elternordner mit Merge-Teildaten: allSel=false → zeigt – (someSel), nicht ✓.
+              const isCloudComplete = !isCloud || completedCloudFolders.has(folderPath)
+              const allSel = folderFiles.length > 0 && isCloudComplete && folderFiles.every(f => selectedFiles.has(f.path))
               const someSel = folderFiles.some(f => selectedFiles.has(f.path))
               return (
                 <div
@@ -433,13 +500,25 @@ export default function ExplorerView() {
                 >
                   <label className="w-8 h-full flex items-center justify-center cursor-pointer" onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={allSel} onChange={() => {
-                      if (allSel) folderFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
-                      else folderFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+                      if (allSel) {
+                        // ✓ → alles deselektieren
+                        folderFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
+                      } else if (isCloud && !isCloudComplete) {
+                        // – oder leer (Cloud, unvollständig) → vollständig laden + alle auswählen.
+                        // Entspricht lokalem Verhalten: – → Klick → ✓ → Klick → leer.
+                        selectCloudFolder(folderPath)
+                      } else {
+                        // – oder leer (lokal / vollständig geladener Cloud-Ordner) → restliche auswählen
+                        folderFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+                      }
                     }} className="sr-only"/>
-                    <span className={`w-[15px] h-[15px] rounded-sm border flex items-center justify-center shrink-0 ${allSel ? 'bg-[var(--accent)] border-[var(--accent)]' : someSel ? 'bg-white border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
-                      {allSel && <Check size={10} className="text-white" strokeWidth={3}/>}
-                      {someSel && !allSel && <Minus size={10} style={{ color: 'var(--accent)' }} strokeWidth={3}/>}
-                    </span>
+                    {isLoading
+                      ? <span className="w-[15px] h-[15px] rounded-sm border border-gray-200 bg-gray-100 animate-pulse shrink-0" />
+                      : <span className={`w-[15px] h-[15px] rounded-sm border flex items-center justify-center shrink-0 ${allSel ? 'bg-[var(--accent)] border-[var(--accent)]' : someSel ? 'bg-white border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
+                          {allSel && <Check size={10} className="text-white" strokeWidth={3}/>}
+                          {someSel && !allSel && <Minus size={10} style={{ color: 'var(--accent)' }} strokeWidth={3}/>}
+                        </span>
+                    }
                   </label>
                   <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm flex items-center gap-2`}>
                     {(isCloud || row.name === CLOUD_FOLDER)

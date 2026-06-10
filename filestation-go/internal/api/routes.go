@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"filestation/internal/config"
@@ -63,6 +64,7 @@ func Register(mux *http.ServeMux, h *sse.Hub) {
 	mux.HandleFunc("GET /api/webdav/stream", WebDavStream)
 	mux.HandleFunc("PUT /api/webdav/put", WebDavPut)
 	mux.HandleFunc("GET /api/webdav/test", WebDavTest)
+	mux.HandleFunc("GET /api/list-recursive", ListRecursive)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -599,6 +601,103 @@ func StartUSBPoller() {
 			}
 		}
 	}()
+}
+
+// ── /api/list-recursive ───────────────────────────────────────────────────────
+//
+// Gibt alle Dateien unterhalb von `path` als flaches Array zurück (nur Bruderschaft/WebDAV).
+// Läuft mit bis zu 5 parallelen PROPFIND-Requests; bricht bei >500 Verzeichnissen ab.
+
+func ListRecursive(w http.ResponseWriter, r *http.Request) {
+	p := r.URL.Query().Get("path")
+	if !strings.HasPrefix(p, "Bruderschaft") {
+		http.Error(w, "nur Bruderschaft-Pfade unterstützt", http.StatusBadRequest)
+		return
+	}
+	cfg := config.Load()
+	if cfg.WebDavURL == "" {
+		http.Error(w, "WebDAV nicht konfiguriert", http.StatusServiceUnavailable)
+		return
+	}
+
+	sub := strings.TrimPrefix(strings.TrimPrefix(p, "Bruderschaft"), "/")
+	ctx := r.Context()
+
+	type fileEntry struct {
+		Path    string `json:"path"`
+		Name    string `json:"name"`
+		Size    int64  `json:"size"`
+		ModTime string `json:"mod_time"`
+	}
+
+	const maxDirs = 500
+	var (
+		mu       sync.Mutex
+		results  []fileEntry
+		dirCount int
+		sem      = make(chan struct{}, 5)
+		wg       sync.WaitGroup
+	)
+
+	var walk func(webdavPath, frontendPrefix string)
+	walk = func(webdavPath, frontendPrefix string) {
+		defer wg.Done()
+		mu.Lock()
+		if dirCount >= maxDirs {
+			mu.Unlock()
+			return
+		}
+		dirCount++
+		mu.Unlock()
+
+		if ctx.Err() != nil {
+			return
+		}
+		sem <- struct{}{}
+		items, err := webdav.List(webdavPath)
+		<-sem
+
+		if err != nil || ctx.Err() != nil {
+			return
+		}
+		for _, item := range items {
+			subWebDav := item.Name
+			if webdavPath != "" {
+				subWebDav = webdavPath + "/" + item.Name
+			}
+			frontendPath := frontendPrefix + item.Name
+			if item.IsDir {
+				wg.Add(1)
+				go walk(subWebDav, frontendPath+"/")
+			} else {
+				modStr := item.Modified
+				if t, terr := http.ParseTime(item.Modified); terr == nil {
+					modStr = t.UTC().Format("2006-01-02T15:04:05Z")
+				}
+				mu.Lock()
+				results = append(results, fileEntry{
+					Path:    frontendPath,
+					Name:    item.Name,
+					Size:    item.Size,
+					ModTime: modStr,
+				})
+				mu.Unlock()
+			}
+		}
+	}
+
+	frontendBase := "Bruderschaft/"
+	if sub != "" {
+		frontendBase = "Bruderschaft/" + sub + "/"
+	}
+	wg.Add(1)
+	go walk(sub, frontendBase)
+	wg.Wait()
+
+	if results == nil {
+		results = []fileEntry{}
+	}
+	writeJSON(w, results)
 }
 
 // ── /api/client-command ───────────────────────────────────────────────────────
