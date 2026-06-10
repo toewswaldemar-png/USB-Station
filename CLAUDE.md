@@ -94,7 +94,7 @@ go test ./internal/scan -v
 | `internal/db/db.go` | SQLite (WAL mode, `modernc.org/sqlite`). Table `files` keyed by relative path; atomic `_version` counter + ETag for cache invalidation |
 | `internal/scan/` | Incremental scan with 8-worker goroutine pool; `date.go` extracts dates (ISO → 8-digit → German `DD.MM.YYYY` → 6-digit → year-only → ID3 fallback); unit tests in `date_test.go` |
 | `internal/fs/service.go` | `DirService`: cached directory listings (TTL + fsnotify), SWR background-refresh, per-directory RWMutex, `os.ReadDir`-based (never recursive). Used by `Open` and `Browse` handlers. |
-| `internal/watch/watch.go` | `fsnotify` watcher: watches all subdirs recursively, per-path debounce, 10-min reconcile loop (safety net). Fires `dir_invalidated` SSE via DirService callback on external FS changes. |
+| `internal/watch/` | `watch.go` + platform split: on **Windows** (`watch_windows.go`) a single `ReadDirectoryChangesW(bWatchSubtree=TRUE)` handle on the root (no per-subdir handles → no SMB rename lock); on **Linux** (`watch_other.go`) standard fsnotify per-subdir adds. Per-path debounce, 10-min reconcile loop (safety net). Fires `dir_invalidated` SSE via `onDirChange` callback → `dirInvalidate` closure in `main.go`. |
 | `internal/sse/sse.go` | Hub: `Register`/`Unregister` channels, `Notify()`, 30 s ping keepalive |
 | `internal/usb/` | Windows: `GetLogicalDrives`+`GetDriveTypeW` syscalls; Linux/macOS: glob `/media/*/*`, `/run/media/*/*`, `/mnt/usb*` |
 | `internal/config/config.go` | `config.json` + `ui_settings.json` with `sync.RWMutex` |
@@ -133,6 +133,12 @@ React 19 + TypeScript + Zustand + Tailwind CSS v4.
 
 **`groupKey(f)`** (in `lib/groupKey.ts`): returns `f.date + ' ' + (f.folder || f.title)` — used as the grouping key in both the calendar and the selection panel.
 
+## Key Constraints
+
+**SMB rename-lock (Windows):** `watch_windows.go` uses a single `ReadDirectoryChangesW` handle on the root with `bWatchSubtree=TRUE` instead of per-subdirectory fsnotify handles. This prevents the NAS SMB server from locking subfolders open and blocking renames. Do not add `watcher.w.Add()` calls for subdirectories on Windows. `addNewDir` is intentionally a no-op on Windows — the recursive handle covers new subdirs automatically.
+
+To revert to standard fsnotify behavior: delete `watch_windows.go` and remove the `//go:build !windows` tag from `watch_other.go`.
+
 ### WebDAV Proxy
 
 Routes: `GET /api/webdav/list`, `GET /api/webdav/stream`, `PUT /api/webdav/put`, `GET /api/webdav/test`. Credentials read from `config.json` at request time.
@@ -152,7 +158,7 @@ Go + `go-webview2` (no CGO). Reads `config.json` (key `server_url`) from its wor
 | GET | `/api/events` | SSE stream: `done:<count>`, `progress:<pct>:<done>:<total>`, `reload`, `usb:<json>`, `copy_progress:<pct>:<done>:<total>`, `copy_error:<rel>`, `copy_done:<total>`, `ui_settings`, `connected`, `client:<cmd>`, `dir_invalidated` |
 | GET | `/api/scan` | Trigger incremental rescan |
 | POST | `/api/scan/cancel` | Cancel running scan |
-| GET | `/api/stream?path=` | Stream an MP3 file; prefix `__cloud__/` for WebDAV |
+| GET | `/api/stream?path=` | Stream an MP3 file; prefix `Bruderschaft/` routes to WebDAV |
 | GET | `/api/open?path=` | Read text file content or directory listing (JSON, legacy flat array) — backed by DirService cache |
 | GET | `/api/browse?path=&offset=&limit=&sort=&asc=&filter=` | Paginated directory listing with server-side sort + filter; `sort`: `name`\|`size`\|`modtime`\|`type` |
 | POST | `/api/save` | Write text file content |

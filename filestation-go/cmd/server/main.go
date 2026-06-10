@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -99,7 +100,12 @@ func main() {
 
 	api.StartUSBPoller()
 
-	srv := &http.Server{Addr: ":8000", Handler: mux}
+	port := cfg.Port
+	if port == 0 {
+		port = 58427
+	}
+	addr := fmt.Sprintf(":%d", port)
+	srv := &http.Server{Addr: addr, Handler: mux}
 
 	go func() {
 		<-ctx.Done()
@@ -114,7 +120,7 @@ func main() {
 		srv.Shutdown(shutCtx)
 	}()
 
-	slog.Info("Server gestartet", "addr", "http://localhost:8000")
+	slog.Info("Server gestartet", "addr", fmt.Sprintf("http://localhost:%d", port))
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("Server-Fehler", "err", err)
 		os.Exit(1)

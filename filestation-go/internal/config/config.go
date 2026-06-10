@@ -15,6 +15,7 @@ var (
 // Config enthält die persistente Anwendungskonfiguration.
 type Config struct {
 	AudioPath        string `json:"audio_path"`
+	Port             int    `json:"port,omitempty"`
 	SettingsPassword string `json:"settings_password,omitempty"`
 	WebDavURL        string `json:"webdav_url,omitempty"`
 	WebDavUser       string `json:"webdav_user,omitempty"`

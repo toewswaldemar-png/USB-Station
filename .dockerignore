@@ -1,0 +1,5 @@
+.git/
+frontend-react/node_modules/
+filestation-go/webembed/web/
+_build/
+*.md
