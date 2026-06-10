@@ -37,7 +37,7 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         {/* Header — gleiche Höhe/Padding wie Breadcrumb-Leiste im Explorer */}
-        <div className="flex items-center gap-2 px-4 py-0.5 border-b border-gray-100 bg-gray-50 shrink-0">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50 shrink-0">
           <button
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-white transition-colors text-gray-500 hover:text-[var(--accent)] shrink-0"
