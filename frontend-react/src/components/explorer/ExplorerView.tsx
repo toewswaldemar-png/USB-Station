@@ -73,6 +73,7 @@ export default function ExplorerView() {
     try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]') } catch { return [] }
   })
   const searchRef = useRef<HTMLInputElement>(null)
+  const [highlightedPath, setHighlightedPath] = useState<string | null>(null)
 
   const isCloud = path[0] === CLOUD_FOLDER
   const currentFolder = path.join('/')
@@ -308,6 +309,20 @@ export default function ExplorerView() {
     overscan: 10,
   })
 
+  // Zu markiertem Eintrag scrollen sobald rows + virtualizer bereit sind
+  useEffect(() => {
+    if (!highlightedPath) return
+    const idx = rows.findIndex(r => r.type === 'file' && r.file.path === highlightedPath)
+    if (idx !== -1) virtualizer.scrollToIndex(idx, { align: 'center' })
+  }, [rows, highlightedPath]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Highlight nach 2,5 s automatisch entfernen
+  useEffect(() => {
+    if (!highlightedPath) return
+    const t = setTimeout(() => setHighlightedPath(null), 2500)
+    return () => clearTimeout(t)
+  }, [highlightedPath])
+
   function toggleSort(by: SortBy) {
     const next = sort.by === by ? { by, dir: sort.dir === 'asc' ? 'desc' as const : 'asc' as const } : { by, dir: 'asc' as const }
     setSort(next)
@@ -493,6 +508,7 @@ export default function ExplorerView() {
                     onMouseDown={() => {
                       saveToHistory(search)
                       setSearch('')
+                      setHighlightedPath(gf.path)
                       pushPath(folderParts)
                     }}>
                     <GIcon size={14} className={`shrink-0 ${gColor}`} />
@@ -682,6 +698,7 @@ export default function ExplorerView() {
 
             const { file } = row
             const sel = selectedFiles.has(file.path)
+            const isHighlighted = file.path === highlightedPath
             const ft = getFileType(file.path.split('/').pop() || file.title || '')
             const FileIcon = ft === 'image' ? Image : ft === 'pdf' ? FileText : ft === 'audio' ? Music : ft === 'text' ? AlignLeft : File
             const fileIconColor = ft === 'audio' ? 'text-purple-400' : ft === 'image' ? 'text-green-500' : ft === 'pdf' ? 'text-red-500' : ft === 'text' ? 'text-sky-400' : 'text-gray-400'
@@ -692,7 +709,8 @@ export default function ExplorerView() {
                 key={vi.key}
                 style={{
                   position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px',
-                  background: sel ? 'var(--accent-xl)' : undefined,
+                  background: isHighlighted ? 'var(--accent-l)' : sel ? 'var(--accent-xl)' : undefined,
+                  transition: isHighlighted ? 'background 2.5s ease-out' : undefined,
                 }}
                 className={`flex items-center border-b border-gray-100 hover:bg-gray-100 transition-colors select-none ${isViewable ? 'cursor-pointer' : ''}`}
                 onClick={isViewable ? () => setViewerFile({ path: file.path, name: file.title || file.path.split('/').pop() || '', type: ft as 'audio' | 'image' | 'pdf' | 'text' }) : undefined}
