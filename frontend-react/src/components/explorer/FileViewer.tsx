@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, ArrowLeft } from 'lucide-react'
 
 interface Props {
   path: string
@@ -27,11 +27,19 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
+        <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-100 shrink-0">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700 shrink-0"
+            title="Zurück (Esc)"
+          >
+            <ArrowLeft size={18} />
+          </button>
           <span className="flex-1 text-sm font-semibold text-gray-700 truncate">{name}</span>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700 shrink-0"
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700 shrink-0"
+            title="Schließen (Esc)"
           >
             <X size={18} />
           </button>
