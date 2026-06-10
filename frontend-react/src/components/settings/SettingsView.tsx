@@ -87,6 +87,9 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const refreshFiles = useFilesStore(s => s.refreshFiles)
   const [isFs, setIsFs] = useState(false)
   const [picking, setPicking] = useState(false)
+  useEffect(() => {
+    fetch('/api/capabilities').then(r => r.json()).then((c: { pick_folder: boolean }) => setCanPickFolder(c.pick_folder))
+  }, [])
   const [exitConfirm, setExitConfirm] = useState(false)
   const exitTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const exitBtnRef = useRef<HTMLButtonElement>(null)
@@ -103,6 +106,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
     return () => document.removeEventListener('mousedown', handler)
   }, [exitConfirm])
   const [audioPath, setAudioPath] = useState(config.audio_path)
+  const [canPickFolder, setCanPickFolder] = useState(false)
   const [webdavUrl, setWebdavUrl] = useState(config.webdav_url)
   const [webdavUser, setWebdavUser] = useState(config.webdav_user)
   const [webdavPw, setWebdavPw] = useState(config.webdav_password)
@@ -294,13 +298,15 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                   onChange={e => setAudioPath(e.target.value)}
                   placeholder="/pfad/zu/audio"
                 />
-                <button
-                  onClick={pickFolder}
-                  disabled={picking}
-                  className="px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  Wählen
-                </button>
+                {canPickFolder && (
+                  <button
+                    onClick={pickFolder}
+                    disabled={picking}
+                    className="px-4 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    Wählen
+                  </button>
+                )}
               </div>
               <button
                 onClick={startScan}

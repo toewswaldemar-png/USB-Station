@@ -85,6 +85,8 @@ func comRelease(obj *uintptr) {
 	}
 }
 
+func pickFolderSupported() bool { return true }
+
 // pickFolderDialog opens an IFileOpenDialog folder picker.
 //
 // The current foreground window (the browser) is passed as hwndOwner to

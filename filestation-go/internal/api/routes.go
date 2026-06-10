@@ -66,6 +66,7 @@ func Register(mux *http.ServeMux, h *sse.Hub) {
 	mux.HandleFunc("PUT /api/webdav/put", WebDavPut)
 	mux.HandleFunc("GET /api/webdav/test", WebDavTest)
 	mux.HandleFunc("GET /api/list-recursive", ListRecursive)
+	mux.HandleFunc("GET /api/capabilities", Capabilities)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -749,6 +750,12 @@ func ListRecursive(w http.ResponseWriter, r *http.Request) {
 		results = []fileEntry{}
 	}
 	writeJSON(w, results)
+}
+
+// ── /api/capabilities ────────────────────────────────────────────────────────
+
+func Capabilities(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]bool{"pick_folder": pickFolderSupported()})
 }
 
 // ── /api/client-command ───────────────────────────────────────────────────────
