@@ -25,6 +25,18 @@ USB-Station/
 
 Laufzeitkonfiguration (`config.json`, `ui_settings.json`, `filestation.db`) liegt in `_build/Server/` (Produktion) bzw. `filestation-go/` (Dev mit `air`/`go run`).
 
+## Building After Changes
+
+After every code change (TSX, TS, CSS, Go), rebuild in this order — without waiting to be asked:
+
+```powershell
+Stop-Process -Name "filestation" -ErrorAction SilentlyContinue
+cd frontend-react; npm run build
+cd ..\filestation-go; go build -o ..\_build\Server\filestation.exe ./cmd/server
+```
+
+**Windows .exe lock:** A running `filestation.exe` prevents `go build` from overwriting it. The build appears to succeed (no error output) but the binary keeps its old timestamp. Always stop the process first and verify the timestamp afterward with `Get-Item ..\_build\Server\filestation.exe | Select-Object LastWriteTime`.
+
 ## Running the App
 
 **Production (full stack):**
@@ -128,6 +140,8 @@ Routes: `GET /api/webdav/list`, `GET /api/webdav/stream`, `PUT /api/webdav/put`,
 ### Client (`cmd/fileclient/main.go`)
 
 Go + `go-webview2` (no CGO). Reads `config.json` (key `server_url`) from its working directory (`_build/Client/`). Polls every 1 s until `/api/config` is reachable, then loads the app; polls every 30 s while connected.
+
+**Kiosk shortcut:** `Ctrl+Alt+Q` exits the kiosk window cleanly (normal window controls are hidden in kiosk mode).
 
 ## Key API Endpoints
 

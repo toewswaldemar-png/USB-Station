@@ -63,6 +63,7 @@ export default function ExplorerView() {
 
     const cached = getCachedDir(key)
     if (cached) {
+      didNavigate.current = true
       setPath(newPath)
       setDirEntries(cached)
       fetchDir(key).then(data => {
@@ -76,6 +77,7 @@ export default function ExplorerView() {
     fetchDir(key).then(data => {
       if (navId.current !== id) return
       if (data !== null) {
+        didNavigate.current = true
         setPath(newPath)
         setDirEntries(data)
       } else if (key) navigate(newPath.slice(0, -1))
@@ -109,7 +111,6 @@ export default function ExplorerView() {
 
   function pushPath(newPath: string[]) {
     if (newPath.join('/') === path.join('/')) return
-    didNavigate.current = true
     navDir.current = newPath.length > path.length ? 'next' : 'prev'
     const next = history.slice(0, histIdx + 1)
     next.push(newPath)
@@ -119,10 +120,10 @@ export default function ExplorerView() {
   }
 
   function goBack() {
-    if (histIdx > 0) { didNavigate.current = true; navDir.current = 'prev'; setHistIdx(h => h - 1); navigate(history[histIdx - 1]) }
+    if (histIdx > 0) { navDir.current = 'prev'; setHistIdx(h => h - 1); navigate(history[histIdx - 1]) }
   }
   function goForward() {
-    if (histIdx < history.length - 1) { didNavigate.current = true; navDir.current = 'next'; setHistIdx(h => h + 1); navigate(history[histIdx + 1]) }
+    if (histIdx < history.length - 1) { navDir.current = 'next'; setHistIdx(h => h + 1); navigate(history[histIdx + 1]) }
   }
 
   type Row = { type: 'dir'; name: string; size: number; modTime: string } | { type: 'file'; file: AudioFile }
