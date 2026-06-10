@@ -30,7 +30,7 @@ function loadSavedPath(): string[] {
 
 export default function ExplorerView() {
   const allFiles = useFilesStore(s => s.allFiles)
-  const { selectedFiles, toggleFile } = useSelectionStore()
+  const { selectedFiles, toggleFile, registerFileMeta } = useSelectionStore()
   const settings = useUISettingsStore(s => s.settings)
 
   const [path, setPath] = useState<string[]>(loadSavedPath)
@@ -286,7 +286,15 @@ export default function ExplorerView() {
       const res = await fetch(`/api/list-recursive?path=${encodeURIComponent(folderPath)}`)
       if (!res.ok) return
       const data: { path: string; name: string; size: number; mod_time: string }[] = await res.json()
-      const audioFiles = data.map(e => ({ path: e.path, title: e.name, date: e.mod_time.slice(0, 10), folder: folderPath, artist: '', album: '', size: e.size, mtime: 0 }) as AudioFile)
+      // date bewusst leer: WebDAV-Änderungsdaten sind pro Datei individuell und würden
+      // Dateien desselben Ordners in verschiedene Sidebar-Gruppen splitten.
+      // folder = direkter Elternordner jeder Datei → groupKey(f) = f.folder
+      // → eine Gruppe pro Unterordner, unabhängig davon welcher Ordner geklickt wurde.
+      const audioFiles = data.map(e => {
+        const parts = e.path.split('/')
+        const immediateParent = parts.slice(0, -1).join('/')
+        return { path: e.path, title: e.name, date: '', folder: immediateParent, artist: '', album: '', size: e.size, mtime: 0 } as AudioFile
+      })
       // Für jede Datei alle Vorfahren von Bruderschaft bis zum direkten Elternordner befüllen,
       // damit Checkboxen auf jeder Navigationsebene (inkl. Elternordner) korrekt angezeigt werden.
       const byFolder = new Map<string, AudioFile[]>()
@@ -568,7 +576,14 @@ export default function ExplorerView() {
                 }}
               >
                 <label className="w-8 h-full flex items-center justify-center cursor-pointer">
-                  <input type="checkbox" checked={sel} onChange={() => toggleFile(file.path, file)} className="sr-only"/>
+                  <input type="checkbox" checked={sel} onChange={() => {
+                    toggleFile(file.path, file)
+                    // Cloud: Geschwisterdateien in selectedFilesMeta registrieren (ohne selektieren),
+                    // damit die komplette Gruppe in der Sidebar erscheint (wie lokales Verhalten).
+                    if (isCloud) {
+                      scopeFiles.forEach(f => { if (f.folder === file.folder) registerFileMeta(f) })
+                    }
+                  }} className="sr-only"/>
                   <span className={`w-[15px] h-[15px] rounded-sm border flex items-center justify-center shrink-0 ${sel ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
                     {sel && <Check size={10} className="text-white" strokeWidth={3}/>}
                   </span>

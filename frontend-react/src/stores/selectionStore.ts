@@ -3,8 +3,9 @@ import type { AudioFile } from '@/types'
 import { groupKey } from '@/lib/groupKey'
 
 interface SelectionState {
-  selectedFiles: Set<string>           // Pfade
-  groupFilters: Map<string, Set<string>> // groupKey → erlaubte Pfade
+  selectedFiles: Set<string>              // Pfade
+  selectedFilesMeta: Map<string, AudioFile> // Pfad → AudioFile (für Cloud-Dateien nicht in allFiles)
+  groupFilters: Map<string, Set<string>>  // groupKey → erlaubte Pfade
   effectivePaths: () => string[]
   toggleFile: (path: string, file: AudioFile) => void
   toggleGroup: (files: AudioFile[]) => void
@@ -12,10 +13,12 @@ interface SelectionState {
   clearAll: () => void
   setGroupFilter: (key: string, paths: Set<string>) => void
   clearGroupFilter: (key: string) => void
+  registerFileMeta: (file: AudioFile) => void  // Metadaten speichern ohne zu selektieren
 }
 
 export const useSelectionStore = create<SelectionState>((set, get) => ({
   selectedFiles: new Set(),
+  selectedFilesMeta: new Map(),
   groupFilters: new Map(),
 
   effectivePaths() {
@@ -32,16 +35,21 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
   toggleFile(path, file) {
     set(s => {
       const next = new Set(s.selectedFiles)
+      const meta = new Map(s.selectedFilesMeta)
       if (next.has(path)) {
         next.delete(path)
+        // meta bewusst NICHT löschen: Metadaten bleiben als Cache erhalten,
+        // damit deselektierte Cloud-Dateien in der Sidebar sichtbar bleiben (wie lokal).
+        // Bereinigung erfolgt nur bei clearAll().
       } else {
         next.add(path)
+        meta.set(path, file)
       }
       // Gruppen-Filter für diese Gruppe entfernen falls vorhanden
       const key = groupKey(file)
       const filters = new Map(s.groupFilters)
       filters.delete(key)
-      return { selectedFiles: next, groupFilters: filters }
+      return { selectedFiles: next, selectedFilesMeta: meta, groupFilters: filters }
     })
   },
 
@@ -73,7 +81,7 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
   },
 
   clearAll() {
-    set({ selectedFiles: new Set(), groupFilters: new Map() })
+    set({ selectedFiles: new Set(), selectedFilesMeta: new Map(), groupFilters: new Map() })
   },
 
   setGroupFilter(key, paths) {
@@ -89,6 +97,13 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
       const filters = new Map(s.groupFilters)
       filters.delete(key)
       return { groupFilters: filters }
+    })
+  },
+
+  registerFileMeta(file) {
+    set(s => {
+      if (s.selectedFilesMeta.has(file.path)) return s  // bereits bekannt
+      return { selectedFilesMeta: new Map(s.selectedFilesMeta).set(file.path, file) }
     })
   },
 }))

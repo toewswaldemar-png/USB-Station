@@ -12,22 +12,35 @@ function stripDate(s: string) {
 }
 
 export default function SelectionPanel() {
-  const { selectedFiles, toggleFile } = useSelectionStore()
+  const { selectedFiles, selectedFilesMeta, toggleFile } = useSelectionStore()
   const allFiles = useFilesStore(s => s.allFiles)
 
-  // Aktive Gruppen-Keys aus selectedFiles ermitteln
+  // Schnell-Lookup: Pfad → AudioFile für lokale Dateien
+  const localByPath = new Map(allFiles.map(f => [f.path, f]))
+
+  // Aktive Gruppen-Keys aus allFiles (lokal) + selectedFilesMeta (Cloud)
   const activeKeys = new Set<string>()
   for (const f of allFiles) {
     if (selectedFiles.has(f.path)) activeKeys.add(groupKey(f))
   }
+  for (const [path, file] of selectedFilesMeta) {
+    if (selectedFiles.has(path) && !localByPath.has(path)) activeKeys.add(groupKey(file))
+  }
 
-  // Alle Dateien der aktiven Gruppen aus allFiles laden
+  // Gruppen aufbauen: lokale Dateien aus allFiles, Cloud-Dateien aus selectedFilesMeta
   const grouped = new Map<string, AudioFile[]>()
   for (const f of allFiles) {
     const k = groupKey(f)
     if (!activeKeys.has(k)) continue
     if (!grouped.has(k)) grouped.set(k, [])
     grouped.get(k)!.push(f)
+  }
+  for (const [path, file] of selectedFilesMeta) {
+    if (localByPath.has(path)) continue  // bereits via allFiles erfasst
+    const k = groupKey(file)
+    if (!activeKeys.has(k)) continue  // Gruppe nur zeigen wenn ≥1 Datei selektiert
+    if (!grouped.has(k)) grouped.set(k, [])
+    grouped.get(k)!.push(file)
   }
 
   const keys = [...grouped.keys()]
