@@ -408,19 +408,31 @@ func Copy(w http.ResponseWriter, r *http.Request) {
 		total := len(req.Paths)
 		rootFolder := time.Now().Format("2006-01-02") + "_Aufnahmen"
 		for i, rel := range req.Paths {
-			src := filepath.Join(base, filepath.FromSlash(rel))
 			dst := filepath.Join(req.Target, rootFolder, filepath.FromSlash(rel))
-			if srcInfo, err := os.Stat(src); err == nil {
-				if dstInfo, err := os.Stat(dst); err == nil && dstInfo.Size() == srcInfo.Size() {
-					pct := int(float64(i+1) / float64(total) * 100)
-					hub.Notify(fmt.Sprintf("copy_progress:%d:%d:%d", pct, i+1, total))
+
+			if strings.HasPrefix(rel, "Bruderschaft/") {
+				// WebDAV-Datei: direkt vom Server herunterladen
+				davPath := strings.TrimPrefix(rel, "Bruderschaft/")
+				if err := copyWebDavFile(davPath, dst); err != nil {
+					slog.Warn("WebDAV-Kopieren fehlgeschlagen", "datei", rel, "err", err)
+					hub.Notify(fmt.Sprintf("copy_error:%s", rel))
 					continue
 				}
-			}
-			if err := copyFile(src, dst); err != nil {
-				slog.Warn("Kopieren fehlgeschlagen", "datei", rel, "err", err)
-				hub.Notify(fmt.Sprintf("copy_error:%s", rel))
-				continue
+			} else {
+				// Lokale Datei
+				src := filepath.Join(base, filepath.FromSlash(rel))
+				if srcInfo, err := os.Stat(src); err == nil {
+					if dstInfo, err := os.Stat(dst); err == nil && dstInfo.Size() == srcInfo.Size() {
+						pct := int(float64(i+1) / float64(total) * 100)
+						hub.Notify(fmt.Sprintf("copy_progress:%d:%d:%d", pct, i+1, total))
+						continue
+					}
+				}
+				if err := copyFile(src, dst); err != nil {
+					slog.Warn("Kopieren fehlgeschlagen", "datei", rel, "err", err)
+					hub.Notify(fmt.Sprintf("copy_error:%s", rel))
+					continue
+				}
 			}
 			pct := int(float64(i+1) / float64(total) * 100)
 			hub.Notify(fmt.Sprintf("copy_progress:%d:%d:%d", pct, i+1, total))
@@ -431,6 +443,25 @@ func Copy(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	writeJSON(w, map[string]string{"status": "gestartet"})
+}
+
+// copyWebDavFile lädt eine WebDAV-Datei herunter und speichert sie unter dst.
+func copyWebDavFile(davPath, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	rc, err := webdav.Download(davPath)
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, rc)
+	return err
 }
 
 func copyFile(src, dst string) error {

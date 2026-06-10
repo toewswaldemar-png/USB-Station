@@ -217,6 +217,32 @@ func Stream(w http.ResponseWriter, r *http.Request, davPath string) {
 	io.Copy(w, resp.Body)
 }
 
+// Download gibt den Inhalt einer WebDAV-Datei als ReadCloser zurück.
+// Der Aufrufer ist für das Schließen des Readers verantwortlich.
+func Download(davPath string) (io.ReadCloser, error) {
+	baseURL, user, pw, err := credentials()
+	if err != nil {
+		return nil, err
+	}
+	target := buildURL(baseURL, davPath)
+	req, err := http.NewRequest("GET", target, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(user, pw)
+	tr := &http.Transport{TLSClientConfig: insecureTLS()}
+	client := &http.Client{Transport: tr, Timeout: 120e9} // 2 min für große Dateien
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("WebDAV GET fehlgeschlagen: %w", err)
+	}
+	if resp.StatusCode != 200 {
+		resp.Body.Close()
+		return nil, fmt.Errorf("WebDAV GET %d: %s", resp.StatusCode, davPath)
+	}
+	return resp.Body, nil
+}
+
 // Put lädt eine Datei auf den WebDAV-Server hoch.
 func Put(davPath string, body io.Reader) error {
 	baseURL, user, pw, err := credentials()
