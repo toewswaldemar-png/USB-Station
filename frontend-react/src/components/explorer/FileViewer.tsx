@@ -36,22 +36,22 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
         className="bg-white w-full h-full overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-100 shrink-0">
+        {/* Header — gleiche Höhe/Padding wie Breadcrumb-Leiste im Explorer */}
+        <div className="flex items-center gap-2 px-4 py-0.5 border-b border-gray-100 bg-gray-50 shrink-0">
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700 shrink-0"
+            className="p-1.5 rounded-full hover:bg-white transition-colors text-gray-500 hover:text-[var(--accent)] shrink-0"
             title="Zurück (Esc)"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={19} />
           </button>
           <span className="flex-1 text-sm font-semibold text-gray-700 truncate">{name}</span>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700 shrink-0"
+            className="p-1.5 rounded-full hover:bg-white transition-colors text-gray-500 hover:text-[var(--accent)] shrink-0"
             title="Schließen (Esc)"
           >
-            <X size={18} />
+            <X size={19} />
           </button>
         </div>
 
