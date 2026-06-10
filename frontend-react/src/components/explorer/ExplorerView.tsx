@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, Check, Minus, Cloud } from 'lucide-react'
+import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, Check, Minus, Cloud, Image, FileText, File } from 'lucide-react'
 import { useFilesStore } from '@/stores/filesStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
@@ -8,6 +8,8 @@ import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
 import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs } from './explorerCache'
 import type { DirEntry } from './explorerCache'
+import FileViewer from './FileViewer'
+import { getFileType, type FileType } from '@/lib/fileType'
 
 const CLOUD_FOLDER = 'Bruderschaft'
 const COL_KEY = 'fs_colWidths'
@@ -49,6 +51,7 @@ export default function ExplorerView() {
   const [sort, setSort] = useState<{ by: SortBy; dir: SortDir }>(() => {
     try { return JSON.parse(localStorage.getItem(SORT_KEY) || '{}') } catch { return { by: settings.sortBy as SortBy, dir: settings.sortDir as SortDir } }
   })
+  const [viewerFile, setViewerFile] = useState<{ path: string; name: string; type: FileType } | null>(null)
 
   const isCloud = path[0] === CLOUD_FOLDER
   const currentFolder = path.join('/')
@@ -562,6 +565,9 @@ export default function ExplorerView() {
 
             const { file } = row
             const sel = selectedFiles.has(file.path)
+            const ft = getFileType(file.title || file.path.split('/').pop() || '')
+            const FileIcon = ft === 'image' ? Image : ft === 'pdf' ? FileText : ft === 'audio' ? Music : File
+            const isViewable = ft !== 'other'
 
             return (
               <div
@@ -570,12 +576,13 @@ export default function ExplorerView() {
                   position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px',
                   background: sel ? 'var(--accent-xl)' : undefined,
                 }}
-                className="flex items-center border-b border-gray-100 hover:bg-gray-100 transition-colors select-none"
+                className={`flex items-center border-b border-gray-100 hover:bg-gray-100 transition-colors select-none ${isViewable ? 'cursor-pointer' : ''}`}
+                onClick={isViewable ? () => setViewerFile({ path: file.path, name: file.title || file.path.split('/').pop() || '', type: ft as 'audio' | 'image' | 'pdf' }) : undefined}
                 onKeyDown={e => {
                   if (e.key === 'F2') { startRename(file.path.split('/').pop() ?? '') }
                 }}
               >
-                <label className="w-8 h-full flex items-center justify-center cursor-pointer">
+                <label className="w-8 h-full flex items-center justify-center cursor-pointer" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={sel} onChange={() => {
                     toggleFile(file.path, file)
                     // Cloud: Geschwisterdateien in selectedFilesMeta registrieren (ohne selektieren),
@@ -589,7 +596,7 @@ export default function ExplorerView() {
                   </span>
                 </label>
                 <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm truncate flex items-center gap-2`}>
-                  <Music size={15} className="shrink-0 text-gray-400"/>
+                  <FileIcon size={15} className="shrink-0 text-gray-400"/>
                   {renaming === file.path.split('/').pop() ? (
                     <input
                       autoFocus
@@ -621,6 +628,16 @@ export default function ExplorerView() {
       </div>
 
       {/* Rubber-Band — ausgeklammert */}
+
+      {/* Datei-Viewer (Audio / Bild / PDF) */}
+      {viewerFile && (
+        <FileViewer
+          path={viewerFile.path}
+          name={viewerFile.name}
+          type={viewerFile.type as 'audio' | 'image' | 'pdf'}
+          onClose={() => setViewerFile(null)}
+        />
+      )}
 
     </div>
   )
