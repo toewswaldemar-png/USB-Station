@@ -182,6 +182,10 @@ export default function ExplorerView() {
           scopeFiles.push(synth)
         }
       }
+      // Unterordner-Dateien aus folderFilesMap in scopeFiles übernehmen,
+      // damit Header-Checkbox allScopeSelected / someScopeSelected korrekt berechnet.
+      // Direkte Dateien und Unterordner-Dateien haben nie denselben Pfad → kein Dedup nötig.
+      folderFilesMap.forEach(files => { for (const f of files) scopeFiles.push(f) })
     } else {
       for (const f of allFiles) {
         filesByPath.set(f.path, f)
@@ -235,7 +239,12 @@ export default function ExplorerView() {
     return Math.ceil(max) + 15 + 8 + 8 + 8 + 8 // icon + gap + padding
   }, [rows])
 
-  const allScopeSelected = scopeFiles.length > 0 && scopeFiles.every(f => selectedFiles.has(f.path))
+  // Header-Checkbox: ✓ nur wenn der aktuelle Ordner vollständig bekannt ist (direkt via list-recursive).
+  // Elternordner mit Merge-Teildaten zeigen – (someScopeSelected), bis sie selbst geladen werden.
+  // Ausnahme: Bruderschaft-Root zeigt kein – (fetch wäre zu teuer für den gesamten WebDAV-Baum).
+  const isCurrentCloudComplete = !isCloud || completedCloudFolders.has(currentFolder)
+  const isBruderschaftRoot = currentFolder === CLOUD_FOLDER
+  const allScopeSelected = scopeFiles.length > 0 && isCurrentCloudComplete && scopeFiles.every(f => selectedFiles.has(f.path))
   const someScopeSelected = scopeFiles.some(f => selectedFiles.has(f.path))
 
   const virtualizer = useVirtualizer({
@@ -377,8 +386,16 @@ export default function ExplorerView() {
       <div className="flex items-center border-b border-gray-100 bg-white shrink-0 text-sm font-semibold text-gray-500 tracking-wide select-none">
         <label className="w-8 flex items-center justify-center cursor-pointer">
           <input type="checkbox" checked={allScopeSelected} onChange={() => {
-            if (allScopeSelected) scopeFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
-            else scopeFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+            if (allScopeSelected || (isBruderschaftRoot && someScopeSelected)) {
+              // ✓ oder – am Bruderschaft-Root → alles deselektieren (kein Fetch am Root)
+              scopeFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
+            } else if (isCloud && !isCurrentCloudComplete && !isBruderschaftRoot) {
+              // – oder leer (Cloud, unvollständig, nicht Root) → vollständig laden + alle auswählen
+              selectCloudFolder(currentFolder)
+            } else {
+              // – oder leer (lokal / vollständig) → alle auswählen
+              scopeFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+            }
           }} className="sr-only"/>
           <span className={`w-[15px] h-[15px] rounded-sm border flex items-center justify-center shrink-0 ${allScopeSelected ? 'bg-[var(--accent)] border-[var(--accent)]' : someScopeSelected ? 'bg-white border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
             {allScopeSelected && <Check size={10} className="text-white" strokeWidth={3}/>}
