@@ -1,21 +1,31 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { X, ArrowLeft } from 'lucide-react'
 
 interface Props {
   path: string
   name: string
-  type: 'audio' | 'image' | 'pdf'
+  type: 'audio' | 'image' | 'pdf' | 'text'
   onClose: () => void
 }
 
 export default function FileViewer({ path, name, type, onClose }: Props) {
   const streamUrl = `/api/stream?path=${encodeURIComponent(path)}`
+  const [textContent, setTextContent] = useState<string | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
+
+  useEffect(() => {
+    if (type !== 'text') return
+    setTextContent(null)
+    fetch(streamUrl)
+      .then(r => r.ok ? r.text() : Promise.reject(r.status))
+      .then(setTextContent)
+      .catch(err => setTextContent(`Fehler beim Laden (${err})`))
+  }, [streamUrl, type])
 
   return (
     <div
@@ -76,6 +86,15 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
             className="w-full flex-1"
             style={{ minHeight: 0 }}
           />
+        )}
+
+        {type === 'text' && (
+          <div className="flex-1 overflow-auto bg-gray-50 p-4">
+            {textContent === null
+              ? <div className="text-sm text-gray-400 animate-pulse">Lade…</div>
+              : <pre className="text-xs text-gray-700 font-mono whitespace-pre-wrap break-words leading-relaxed">{textContent}</pre>
+            }
+          </div>
         )}
       </div>
     </div>
