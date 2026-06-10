@@ -59,6 +59,7 @@ export default function ExplorerView() {
   const navigate = useCallback((newPath: string[]) => {
     const key = newPath.join('/')
     const id = ++navId.current
+    didNavigate.current = false
     setSearch('')
 
     const cached = getCachedDir(key)
@@ -151,18 +152,39 @@ export default function ExplorerView() {
     const folderFilesMap = new Map<string, AudioFile[]>()
     const scopeFiles: AudioFile[] = []
 
-    for (const f of allFiles) {
-      filesByPath.set(f.path, f)
-      if (prefix && !f.path.startsWith(prefix)) continue
-      const rest = f.path.slice(prefix.length)
-      if (!rest) continue
-      scopeFiles.push(f)
-      const slash = rest.indexOf('/')
-      if (slash !== -1) {
-        const dir = rest.slice(0, slash)
-        const bucket = folderFilesMap.get(dir)
-        if (bucket) bucket.push(f)
-        else folderFilesMap.set(dir, [f])
+    if (isCloud) {
+      // Cloud-Ordner: scopeFiles + filesByPath aus sichtbaren dirEntries aufbauen.
+      // folderFilesMap aus Explorer-Cache befüllen (verfügbar nach erstem Besuch des Unterordners).
+      for (const e of dirEntries) {
+        const rel = prefix + e.name
+        if (e.is_dir) {
+          const cached = getCachedDir(rel)
+          if (cached) {
+            const files = cached
+              .filter(c => !c.is_dir)
+              .map(c => ({ path: rel + '/' + c.name, title: c.name, date: '', folder: rel, artist: '', album: '', size: c.size, mtime: 0 }) as AudioFile)
+            if (files.length > 0) folderFilesMap.set(e.name, files)
+          }
+        } else {
+          const synth: AudioFile = { path: rel, title: e.name, date: '', folder: currentFolder, artist: '', album: '', size: e.size, mtime: 0 }
+          filesByPath.set(rel, synth)
+          scopeFiles.push(synth)
+        }
+      }
+    } else {
+      for (const f of allFiles) {
+        filesByPath.set(f.path, f)
+        if (prefix && !f.path.startsWith(prefix)) continue
+        const rest = f.path.slice(prefix.length)
+        if (!rest) continue
+        scopeFiles.push(f)
+        const slash = rest.indexOf('/')
+        if (slash !== -1) {
+          const dir = rest.slice(0, slash)
+          const bucket = folderFilesMap.get(dir)
+          if (bucket) bucket.push(f)
+          else folderFilesMap.set(dir, [f])
+        }
       }
     }
 
