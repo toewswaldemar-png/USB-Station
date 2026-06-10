@@ -494,7 +494,6 @@ export default function ExplorerView() {
                       saveToHistory(search)
                       setSearch('')
                       pushPath(folderParts)
-                      if (gft !== 'other') setViewerFile({ path: gf.path, name: gf.title || gf.path.split('/').pop() || '', type: gft as Exclude<FileType, 'other'> })
                     }}>
                     <GIcon size={14} className={`shrink-0 ${gColor}`} />
                     <div className="min-w-0">
