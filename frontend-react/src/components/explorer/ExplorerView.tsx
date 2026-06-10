@@ -565,7 +565,7 @@ export default function ExplorerView() {
 
             const { file } = row
             const sel = selectedFiles.has(file.path)
-            const ft = getFileType(file.title || file.path.split('/').pop() || '')
+            const ft = getFileType(file.path.split('/').pop() || file.title || '')
             const FileIcon = ft === 'image' ? Image : ft === 'pdf' ? FileText : ft === 'audio' ? Music : ft === 'text' ? AlignLeft : File
             const fileIconColor = ft === 'audio' ? 'text-purple-400' : ft === 'image' ? 'text-green-500' : ft === 'pdf' ? 'text-red-500' : ft === 'text' ? 'text-sky-400' : 'text-gray-400'
             const isViewable = ft !== 'other'
