@@ -19,11 +19,11 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
 
   return (
     <div
-      className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col"
+        className="bg-white w-full h-full overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -39,7 +39,7 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
 
         {/* Body */}
         {type === 'audio' && (
-          <div className="px-6 py-8 flex justify-center">
+          <div className="flex-1 flex items-center justify-center px-6">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <audio
               controls
@@ -52,12 +52,11 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
         )}
 
         {type === 'image' && (
-          <div className="p-4 flex items-center justify-center bg-gray-50" style={{ maxHeight: '80vh' }}>
+          <div className="flex-1 flex items-center justify-center bg-gray-50 p-4 overflow-hidden">
             <img
               src={streamUrl}
               alt={name}
-              className="max-w-full object-contain rounded-lg"
-              style={{ maxHeight: 'calc(80vh - 60px)' }}
+              className="max-w-full max-h-full object-contain"
             />
           </div>
         )}
@@ -66,8 +65,8 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
           <embed
             src={streamUrl}
             type="application/pdf"
-            className="w-full"
-            style={{ height: '80vh' }}
+            className="w-full flex-1"
+            style={{ minHeight: 0 }}
           />
         )}
       </div>
