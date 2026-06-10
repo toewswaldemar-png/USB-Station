@@ -426,8 +426,8 @@ export default function ExplorerView() {
                     <span className="text-gray-700 truncate">{row.name}</span>
                   </div>
                   <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
-                  <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-gray-700 shrink-0">
-                    {folderFiles.length > 0 ? fmtBytes(folderFiles.reduce((s, f) => s + f.size, 0)) : <span className="text-gray-300 block text-center">–</span>}
+                  <div style={{ width: colW('size', 80) }} className={`px-2 text-sm shrink-0 ${folderFiles.length > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
+                    {folderFiles.length > 0 ? fmtBytes(folderFiles.reduce((s, f) => s + f.size, 0)) : '–'}
                   </div>
                   <div className="flex-1" />
                 </div>
