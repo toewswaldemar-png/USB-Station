@@ -203,6 +203,17 @@ func Clear() error {
 	return nil
 }
 
+func Search(q string, limit int) ([]AudioFile, error) {
+	like := "%" + q + "%"
+	var files []AudioFile
+	err := instance.Select(&files,
+		`SELECT path,date,title,folder,artist,album,size,mtime FROM files
+		 WHERE title LIKE ? OR path LIKE ?
+		 ORDER BY date DESC, path
+		 LIMIT ?`, like, like, limit)
+	return files, err
+}
+
 func Count() (int, error) {
 	var n int
 	err := instance.QueryRow("SELECT COUNT(*) FROM files").Scan(&n)

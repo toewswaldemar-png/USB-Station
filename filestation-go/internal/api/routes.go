@@ -60,6 +60,7 @@ func Register(mux *http.ServeMux, h *sse.Hub) {
 	mux.HandleFunc("POST /api/config", PostConfig)
 	mux.HandleFunc("POST /api/auth", Auth)
 	mux.HandleFunc("POST /api/client-command", ClientCommand)
+	mux.HandleFunc("GET /api/search", SearchFiles)
 	mux.HandleFunc("GET /api/webdav/list", WebDavList)
 	mux.HandleFunc("GET /api/webdav/stream", WebDavStream)
 	mux.HandleFunc("PUT /api/webdav/put", WebDavPut)
@@ -632,6 +633,25 @@ func StartUSBPoller() {
 			}
 		}
 	}()
+}
+
+// ── /api/search ──────────────────────────────────────────────────────────────
+
+func SearchFiles(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if len([]rune(q)) < 2 {
+		writeJSON(w, []db.AudioFile{})
+		return
+	}
+	files, err := db.Search(q, 50)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if files == nil {
+		files = []db.AudioFile{}
+	}
+	writeJSON(w, files)
 }
 
 // ── /api/list-recursive ───────────────────────────────────────────────────────

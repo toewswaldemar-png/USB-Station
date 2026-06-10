@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, Check, Minus, Cloud, Image, FileText, File, AlignLeft } from 'lucide-react'
+import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, Check, Minus, Cloud, Image, FileText, File, AlignLeft, X, Search } from 'lucide-react'
 import { useFilesStore } from '@/stores/filesStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
@@ -13,6 +13,21 @@ import { getFileType, type FileType } from '@/lib/fileType'
 
 const CLOUD_FOLDER = 'Bruderschaft'
 const COL_KEY = 'fs_colWidths'
+const SEARCH_HISTORY_KEY = 'fs_search_history'
+const MAX_HISTORY = 8
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query) return <>{text}</>
+  const lower = text.toLowerCase()
+  const qLower = query.toLowerCase()
+  const idx = lower.indexOf(qLower)
+  if (idx === -1) return <>{text}</>
+  return <>
+    {text.slice(0, idx)}
+    <mark className="bg-yellow-200 text-gray-900 px-0.5 rounded-sm not-italic">{text.slice(idx, idx + query.length)}</mark>
+    {text.slice(idx + query.length)}
+  </>
+}
 
 function loadColWidths() {
   try { return JSON.parse(localStorage.getItem(COL_KEY) || '{}') } catch { return {} }
@@ -52,6 +67,12 @@ export default function ExplorerView() {
     try { return JSON.parse(localStorage.getItem(SORT_KEY) || '{}') } catch { return { by: settings.sortBy as SortBy, dir: settings.sortDir as SortDir } }
   })
   const [viewerFile, setViewerFile] = useState<{ path: string; name: string; type: Exclude<FileType, 'other'> } | null>(null)
+  const [globalResults, setGlobalResults] = useState<AudioFile[]>([])
+  const [searchFocused, setSearchFocused] = useState(false)
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]') } catch { return [] }
+  })
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const isCloud = path[0] === CLOUD_FOLDER
   const currentFolder = path.join('/')
@@ -110,6 +131,36 @@ export default function ExplorerView() {
   useEffect(() => {
     localStorage.setItem(PATH_KEY, JSON.stringify(path))
   }, [path])
+
+  // Ctrl+F → Suchfeld fokussieren
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'f' && e.ctrlKey) { e.preventDefault(); searchRef.current?.focus() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // Globale Suche — debounced, ab 2 Zeichen
+  useEffect(() => {
+    if (search.length < 2) { setGlobalResults([]); return }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(search)}`)
+        if (res.ok) setGlobalResults(await res.json())
+      } catch { /* ignorieren */ }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  function saveToHistory(q: string) {
+    if (!q.trim() || q.length < 2) return
+    setSearchHistory(prev => {
+      const next = [q, ...prev.filter(h => h !== q)].slice(0, MAX_HISTORY)
+      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next))
+      return next
+    })
+  }
 
   // Prefetch: Unterordner der aktuellen Ebene im Hintergrund vorladen.
   // Limit: max. 3 gleichzeitig, max. 8 Unterordner (NAS-Schutz — siehe explorerCache.ts).
@@ -384,13 +435,80 @@ export default function ExplorerView() {
             </span>
           ))}
         </div>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Suchen…"
-          className="ml-auto border border-gray-200 rounded-full px-2.5 py-1 text-sm w-44 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
-          style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
-        />
+        {/* Suchfeld mit ✕, History-Dropdown und globalen Ergebnissen */}
+        <div className="ml-auto relative">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+              onKeyDown={e => {
+                if (e.key === 'Escape') { setSearch(''); searchRef.current?.blur() }
+                if (e.key === 'Enter') saveToHistory(search)
+              }}
+              placeholder="Suchen… (Strg+F)"
+              className="border border-gray-200 rounded-full pl-7 pr-7 py-1 text-sm w-52 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
+              style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
+            />
+            {search && (
+              <button
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                onMouseDown={e => { e.preventDefault(); setSearch('') }}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Suchverlauf — erscheint bei Fokus ohne Eingabe */}
+          {searchFocused && !search && searchHistory.length > 0 && (
+            <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-20 w-64 overflow-hidden">
+              <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Zuletzt gesucht</p>
+              {searchHistory.map((h, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm text-gray-700"
+                  onMouseDown={() => setSearch(h)}>
+                  <Search size={11} className="text-gray-300 shrink-0" />
+                  {h}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Globale Suchergebnisse — erscheint nach Debounce ab 2 Zeichen */}
+          {searchFocused && search.length >= 2 && globalResults.length > 0 && (
+            <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-20 w-96 max-h-72 overflow-y-auto">
+              <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider sticky top-0 bg-white border-b border-gray-50">
+                {globalResults.length} Treffer gesamt
+              </p>
+              {globalResults.map(gf => {
+                const gft = getFileType(gf.path.split('/').pop() || '')
+                const GIcon = gft === 'image' ? Image : gft === 'pdf' ? FileText : gft === 'audio' ? Music : gft === 'text' ? AlignLeft : File
+                const gColor = gft === 'audio' ? 'text-purple-400' : gft === 'image' ? 'text-green-500' : gft === 'pdf' ? 'text-red-500' : gft === 'text' ? 'text-sky-400' : 'text-gray-400'
+                const folderParts = gf.path.split('/').slice(0, -1)
+                return (
+                  <div key={gf.path} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    onMouseDown={() => {
+                      saveToHistory(search)
+                      setSearch('')
+                      pushPath(folderParts)
+                      if (gft !== 'other') setViewerFile({ path: gf.path, name: gf.title || gf.path.split('/').pop() || '', type: gft as Exclude<FileType, 'other'> })
+                    }}>
+                    <GIcon size={14} className={`shrink-0 ${gColor}`} />
+                    <div className="min-w-0">
+                      <div className="text-sm text-gray-700 truncate">
+                        <Highlight text={gf.title || gf.path.split('/').pop() || ''} query={search} />
+                      </div>
+                      <div className="text-[11px] text-gray-400 truncate">{folderParts.join(' › ')}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tabellen-Header */}
@@ -552,7 +670,7 @@ export default function ExplorerView() {
                     {(isCloud || row.name === CLOUD_FOLDER)
                       ? <Cloud size={15} className="shrink-0 text-blue-400"/>
                       : <Folder size={15} className="shrink-0 text-yellow-400"/>}
-                    <span className="text-gray-700 truncate">{row.name}</span>
+                    <span className="text-gray-700 truncate"><Highlight text={row.name} query={search} /></span>
                   </div>
                   <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
                   <div style={{ width: colW('size', 80) }} className={`px-2 text-sm shrink-0 ${folderFiles.length > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
@@ -611,7 +729,7 @@ export default function ExplorerView() {
                       className="border border-[var(--accent)] rounded-md px-1.5 text-sm w-full focus:outline-none"
                     />
                   ) : (
-                    <span className="truncate">{file.title || file.path.split('/').pop()}</span>
+                    <span className="truncate"><Highlight text={file.title || file.path.split('/').pop() || ''} query={search} /></span>
                   )}
                 </div>
                 <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">
