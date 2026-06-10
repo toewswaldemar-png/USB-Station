@@ -551,7 +551,7 @@ export default function ExplorerView() {
                   <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm flex items-center gap-2`}>
                     {(isCloud || row.name === CLOUD_FOLDER)
                       ? <Cloud size={15} className="shrink-0 text-blue-400"/>
-                      : <Folder size={15} className="shrink-0 text-gray-400"/>}
+                      : <Folder size={15} className="shrink-0 text-yellow-400"/>}
                     <span className="text-gray-700 truncate">{row.name}</span>
                   </div>
                   <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
@@ -567,6 +567,7 @@ export default function ExplorerView() {
             const sel = selectedFiles.has(file.path)
             const ft = getFileType(file.title || file.path.split('/').pop() || '')
             const FileIcon = ft === 'image' ? Image : ft === 'pdf' ? FileText : ft === 'audio' ? Music : ft === 'text' ? AlignLeft : File
+            const fileIconColor = ft === 'audio' ? 'text-purple-400' : ft === 'image' ? 'text-green-500' : ft === 'pdf' ? 'text-red-500' : ft === 'text' ? 'text-sky-400' : 'text-gray-400'
             const isViewable = ft !== 'other'
 
             return (
@@ -596,7 +597,7 @@ export default function ExplorerView() {
                   </span>
                 </label>
                 <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm truncate flex items-center gap-2`}>
-                  <FileIcon size={15} className="shrink-0 text-gray-400"/>
+                  <FileIcon size={15} className={`shrink-0 ${fileIconColor}`}/>
                   {renaming === file.path.split('/').pop() ? (
                     <input
                       autoFocus
