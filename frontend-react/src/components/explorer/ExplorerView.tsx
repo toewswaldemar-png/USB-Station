@@ -356,7 +356,7 @@ export default function ExplorerView() {
   const colW = (col: string, def: number) => colWidths[col] ?? def
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Breadcrumb + Suche */}
       <div className="flex items-center gap-2 px-4 py-0.5 shadow-sm z-10 relative shrink-0 bg-gray-50">
         <div className="flex items-center gap-0">
