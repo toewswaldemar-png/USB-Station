@@ -187,12 +187,8 @@ func Open(w http.ResponseWriter, r *http.Request) {
 	cfg := config.Load()
 	folder := webdavFolder(cfg)
 
-	// Virtueller Cloud-Ordner → WebDAV-Listing
-	if p == folder || strings.HasPrefix(p, folder+"/") {
-		if cfg.WebDavURL == "" {
-			http.Error(w, "WebDAV nicht konfiguriert", http.StatusNotFound)
-			return
-		}
+	// Virtueller Cloud-Ordner → WebDAV-Listing (nur wenn WebDAV konfiguriert ist)
+	if cfg.WebDavURL != "" && (p == folder || strings.HasPrefix(p, folder+"/")) {
 		sub := strings.TrimPrefix(strings.TrimPrefix(p, folder), "/")
 		items, err := webdav.List(sub)
 		if err != nil {
