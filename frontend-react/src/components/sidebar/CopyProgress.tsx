@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Copy, Trash2 } from 'lucide-react'
 import type { UsbDrive } from '@/types'
 import { useSelectionStore } from '@/stores/selectionStore'
 
@@ -54,17 +55,18 @@ export default function CopyProgress({ sseMsg, selectedDrive }: Props) {
         <button
           onClick={handleCopy}
           disabled={!selectedDrive || progress !== null || paths.length === 0}
-          className="flex-1 py-1.5 rounded-lg text-sm text-white font-semibold disabled:opacity-40 transition-opacity"
+          className="flex-1 py-1.5 rounded-lg text-sm text-white font-semibold disabled:opacity-40 flex items-center justify-center gap-1.5 active:scale-[0.96] active:opacity-80 transition-all duration-100"
           style={{ background: 'var(--accent)' }}
         >
+          <Copy size={14} />
           Kopieren
         </button>
         <button
           onClick={clearAll}
           disabled={paths.length === 0}
-          className="w-9 flex items-center justify-center rounded-lg text-sm border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          className="w-9 flex items-center justify-center rounded-lg text-sm border border-red-200 text-red-400 hover:text-red-600 hover:border-red-300 active:scale-[0.96] active:bg-red-50 transition-all duration-100 disabled:opacity-30 disabled:pointer-events-none"
         >
-          ✕
+          <Trash2 size={14} />
         </button>
       </div>
 
