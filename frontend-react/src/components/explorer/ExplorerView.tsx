@@ -13,8 +13,6 @@ import FileViewer from './FileViewer'
 import { getFileType, type FileType } from '@/lib/fileType'
 
 const COL_KEY = 'fs_colWidths'
-const SEARCH_HISTORY_KEY = 'fs_search_history'
-const MAX_HISTORY = 8
 
 function Highlight({ text, query }: { text: string; query: string }) {
   if (!query) return <>{text}</>
@@ -70,9 +68,7 @@ export default function ExplorerView() {
   const [viewerFile, setViewerFile] = useState<{ path: string; name: string; type: Exclude<FileType, 'other'> } | null>(null)
   const [globalResults, setGlobalResults] = useState<AudioFile[]>([])
   const [searchFocused, setSearchFocused] = useState(false)
-  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]') } catch { return [] }
-  })
+
   const searchRef = useRef<HTMLInputElement>(null)
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null)
 
@@ -155,14 +151,6 @@ export default function ExplorerView() {
     return () => clearTimeout(timer)
   }, [search])
 
-  function saveToHistory(q: string) {
-    if (!q.trim() || q.length < 2) return
-    setSearchHistory(prev => {
-      const next = [q, ...prev.filter(h => h !== q)].slice(0, MAX_HISTORY)
-      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next))
-      return next
-    })
-  }
 
   // Prefetch: Unterordner der aktuellen Ebene im Hintergrund vorladen.
   // Limit: max. 3 gleichzeitig, max. 8 Unterordner (NAS-Schutz — siehe explorerCache.ts).
@@ -461,7 +449,7 @@ export default function ExplorerView() {
               onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
               onKeyDown={e => {
                 if (e.key === 'Escape') { setSearch(''); searchRef.current?.blur() }
-                if (e.key === 'Enter') saveToHistory(search)
+
               }}
               placeholder="Suchen… (Strg+F)"
               className="border border-gray-200 rounded-full pl-7 pr-7 text-sm w-52 h-9 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
@@ -477,20 +465,6 @@ export default function ExplorerView() {
             )}
           </div>
 
-          {/* Suchverlauf — erscheint bei Fokus ohne Eingabe */}
-          {searchFocused && !search && searchHistory.length > 0 && (
-            <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-20 w-64 overflow-hidden">
-              <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Zuletzt gesucht</p>
-              {searchHistory.map((h, i) => (
-                <div key={i} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm text-gray-700"
-                  onMouseDown={() => setSearch(h)}>
-                  <Search size={11} className="text-gray-300 shrink-0" />
-                  {h}
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Globale Suchergebnisse — erscheint nach Debounce ab 2 Zeichen */}
           {searchFocused && search.length >= 2 && globalResults.length > 0 && (
             <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-20 w-96 max-h-72 overflow-y-auto">
@@ -505,7 +479,6 @@ export default function ExplorerView() {
                 return (
                   <div key={gf.path} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
                     onMouseDown={() => {
-                      saveToHistory(search)
                       setSearch('')
                       setHighlightedPath(gf.path)
                       pushPath(folderParts)
