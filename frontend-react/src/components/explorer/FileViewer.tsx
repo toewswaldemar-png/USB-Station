@@ -45,7 +45,7 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
           >
             <ArrowLeft size={19} />
           </button>
-          <span className="flex-1 text-sm font-semibold text-gray-700 truncate">{name}</span>
+          <span className="flex-1 text-sm font-semibold text-gray-900 truncate">{name}</span>
           <button
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-white transition-colors text-gray-500 hover:text-[var(--accent)] shrink-0"
@@ -92,7 +92,7 @@ export default function FileViewer({ path, name, type, onClose }: Props) {
           <div className="flex-1 overflow-auto bg-gray-50 p-4">
             {textContent === null
               ? <div className="text-sm text-gray-400 animate-pulse">Lade…</div>
-              : <pre className="text-xs text-gray-700 font-mono whitespace-pre-wrap break-words leading-relaxed">{textContent}</pre>
+              : <pre className="text-xs text-gray-900 font-mono whitespace-pre-wrap break-words leading-relaxed">{textContent}</pre>
             }
           </div>
         )}

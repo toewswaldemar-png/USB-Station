@@ -22,7 +22,7 @@ export default function UsbDriveList({ drives, selected, onSelect }: Props) {
           key={d.path}
           onClick={() => onSelect(selected?.path === d.path ? null : d)}
           className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-left transition-colors
-            ${selected?.path === d.path ? 'text-white' : 'hover:bg-gray-50 text-gray-700'}`}
+            ${selected?.path === d.path ? 'text-white' : 'hover:bg-gray-50 text-gray-900'}`}
           style={selected?.path === d.path ? { background: 'var(--accent)' } : {}}
         >
           <HardDrive size={15} className="shrink-0" />

@@ -491,7 +491,7 @@ export default function ExplorerView() {
                     }}>
                     <GIcon size={14} className={`shrink-0 ${gColor}`} />
                     <div className="min-w-0">
-                      <div className="text-sm text-gray-700 truncate">
+                      <div className="text-sm text-gray-900 truncate">
                         <Highlight text={gf.title || gf.path.split('/').pop() || ''} query={search} />
                       </div>
                       <div className="text-[11px] text-gray-400 truncate">{folderParts.join(' › ')}</div>
@@ -663,10 +663,10 @@ export default function ExplorerView() {
                     {(isCloud || (row.name === cloudFolder && webdavConfigured))
                       ? <Cloud size={15} className="shrink-0 text-blue-400"/>
                       : <Folder size={15} className="shrink-0 text-yellow-400"/>}
-                    <span className="text-gray-700 truncate"><Highlight text={row.name} query={search} /></span>
+                    <span className="text-gray-900 truncate"><Highlight text={row.name} query={search} /></span>
                   </div>
-                  <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
-                  <div style={{ width: colW('size', 80) }} className={`px-2 text-sm shrink-0 ${folderFiles.length > 0 ? 'text-gray-700' : 'text-gray-300'}`}>
+                  <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-600 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
+                  <div style={{ width: colW('size', 80) }} className={`px-2 text-sm shrink-0 ${folderFiles.length > 0 ? 'text-gray-600' : 'text-gray-300'}`}>
                     {folderFiles.length > 0 ? fmtBytes(folderFiles.reduce((s, f) => s + f.size, 0)) : '–'}
                   </div>
                   <div className="flex-1" />
@@ -727,10 +727,10 @@ export default function ExplorerView() {
                     <span className="truncate"><Highlight text={file.title || file.path.split('/').pop() || ''} query={search} /></span>
                   )}
                 </div>
-                <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-700 shrink-0">
+                <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-600 shrink-0">
                   {formatDate(file.date)}
                 </div>
-                <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-gray-700 shrink-0">
+                <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-gray-600 shrink-0">
                   {fmtBytes(file.size)}
                 </div>
                 <div className="flex-1" />

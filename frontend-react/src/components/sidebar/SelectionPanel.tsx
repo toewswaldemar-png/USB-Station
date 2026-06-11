@@ -77,7 +77,7 @@ export default function SelectionPanel() {
               onClick={() => setOpenKey(isOpen ? null : key)}
             >
               <div className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
-              <span className="flex-1 text-[12px] font-semibold text-gray-700 truncate">
+              <span className="flex-1 text-[12px] font-semibold text-gray-900 truncate">
                 {stripDate(key)}
               </span>
               <span

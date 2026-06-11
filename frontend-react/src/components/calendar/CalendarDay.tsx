@@ -44,7 +44,7 @@ export default function CalendarDay({
       ? <span className="flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold" style={{ background: 'var(--accent)' }}>{day}</span>
       : <span className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold" style={{ color: 'var(--accent)' }}>{day}</span>
   ) : (
-    <span className={`text-xs font-semibold ${isWeekend ? 'text-red-400' : 'text-gray-400'}`}>{day}</span>
+    <span className={`text-xs font-semibold ${isWeekend ? 'text-red-400' : 'text-gray-600'}`}>{day}</span>
   )
 
   return (
