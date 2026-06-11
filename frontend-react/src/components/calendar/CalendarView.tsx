@@ -188,30 +188,33 @@ export default function CalendarView() {
         </button>
       </div>
 
-      {/* Wochentag-Header */}
-      <div className="grid grid-cols-7 bg-white shrink-0 shadow-sm">
-        {DAY_LABELS.map((d, i) => (
-          <div
-            key={d}
-            className={`text-center text-xs font-extrabold py-2 uppercase tracking-wide
-              ${WEEKEND_COLS.includes(i) ? 'text-red-400' : 'text-gray-600'}`}
-          >
-            {d}
-          </div>
-        ))}
-      </div>
-
-      {/* Kalender-Grid */}
+      {/* Wochentag-Header + Kalender-Grid — gemeinsam animiert */}
       <div
-        className="flex-1 overflow-hidden bg-white"
+        className="flex-1 overflow-hidden"
         style={{ touchAction: 'pan-y' }}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
       >
         <div
           key={`${year}-${month}`}
-          className={`grid grid-cols-7 h-full border-t border-l border-gray-100 ${monthAnimClass}`}
-          style={{ gridTemplateRows: `repeat(${Math.ceil((firstDay + days) / 7)}, 1fr)`, '--cal-dur': monthAnimDur } as React.CSSProperties}
+          className={`flex flex-col h-full ${monthAnimClass}`}
+          style={{ '--cal-dur': monthAnimDur } as React.CSSProperties}
+        >
+        <div className="grid grid-cols-7 bg-white shrink-0 shadow-sm">
+          {DAY_LABELS.map((d, i) => (
+            <div
+              key={d}
+              className={`text-center text-xs font-extrabold py-2 uppercase tracking-wide
+                ${WEEKEND_COLS.includes(i) ? 'text-red-400' : 'text-gray-600'}`}
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="flex-1 overflow-hidden bg-white">
+        <div
+          className={`grid grid-cols-7 h-full border-t border-l border-gray-100`}
+          style={{ gridTemplateRows: `repeat(${Math.ceil((firstDay + days) / 7)}, 1fr)` } as React.CSSProperties}
         >
           {Array.from({ length: firstDay }).map((_, i) => {
             const d = daysInPrev - firstDay + i + 1
@@ -275,6 +278,8 @@ export default function CalendarView() {
               </div>
             )
           })}
+        </div>
+        </div>
         </div>
       </div>
     </div>
