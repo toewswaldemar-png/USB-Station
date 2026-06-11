@@ -9,12 +9,10 @@ interface Props {
   size: 'sm' | 'md' | 'lg'
   compact: boolean
   bold: boolean
-  animClass: string
-  animDur: string
   onClick: () => void
 }
 
-export default function CalendarEntry({ label, files, status, size, bold, animClass, animDur, onClick }: Props) {
+export default function CalendarEntry({ label, files, status, size, bold, onClick }: Props) {
   const DATE_RE = /^(\d{4}-\d{2}-\d{2}|\d{8}|\d{1,2}\.\d{1,2}\.\d{4})\s*/
   const displayLabel = label.replace(DATE_RE, '').replace(DATE_RE, '').trim() || label
 
@@ -31,9 +29,8 @@ export default function CalendarEntry({ label, files, status, size, bold, animCl
         flex items-center
         ${SIZE_TEXT[size]}
         ${bold ? 'font-semibold' : 'font-medium'}
-        ${animClass}
       `}
-      style={{ '--cal-dur': animDur, ...entryStyle[status] } as React.CSSProperties}
+      style={entryStyle[status]}
       title={`${displayLabel} (${files.length})`}
       onClick={onClick}
     >

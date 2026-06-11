@@ -224,7 +224,6 @@ export default function CalendarView() {
                     day={d} isToday={false} isWeekend={isWeekend}
                     todayStyle={settings.todayStyle} groups={dayGroups}
                     entrySize={settings.entrySize} compact={false} bold={false}
-                    animation="none" animSpeed={settings.calAnimSpeed}
                     amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
                     onToggleGroup={toggleGroup}
                   />
@@ -250,8 +249,6 @@ export default function CalendarView() {
                   entrySize={settings.entrySize}
                   compact={false}
                   bold={false}
-                  animation={navigated.current ? settings.calAnimation : 'none'}
-                  animSpeed={settings.calAnimSpeed}
                   amPmSplit={settings.amPmSplit}
                   groupStatus={groupStatus}
                   onToggleGroup={toggleGroup}
@@ -271,7 +268,6 @@ export default function CalendarView() {
                     day={d} isToday={false} isWeekend={isWeekend}
                     todayStyle={settings.todayStyle} groups={dayGroups}
                     entrySize={settings.entrySize} compact={false} bold={false}
-                    animation="none" animSpeed={settings.calAnimSpeed}
                     amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
                     onToggleGroup={toggleGroup}
                   />

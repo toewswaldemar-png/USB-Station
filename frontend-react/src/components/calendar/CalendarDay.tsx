@@ -2,7 +2,6 @@ import type { CSSProperties } from 'react'
 import type { AudioFile } from '@/types'
 import CalendarEntry from './CalendarEntry'
 
-const SPEED_MS: Record<string, string> = { slow: '0.6s', normal: '0.3s', fast: '0.15s' }
 const AM_HOUR = 12
 
 interface Props {
@@ -14,8 +13,6 @@ interface Props {
   entrySize: 'sm' | 'md' | 'lg'
   compact: boolean
   bold: boolean
-  animation: string
-  animSpeed: string
   amPmSplit: boolean
   groupStatus: (files: AudioFile[]) => 'none' | 'partial' | 'full'
   onToggleGroup: (files: AudioFile[]) => void
@@ -23,10 +20,9 @@ interface Props {
 
 export default function CalendarDay({
   day, isToday, isWeekend, todayStyle, groups,
-  entrySize, compact, bold, animation, animSpeed,
+  entrySize, compact, bold,
   amPmSplit, groupStatus, onToggleGroup,
 }: Props) {
-  const dur = SPEED_MS[animSpeed] ?? '0.3s'
 
   const allEntries = [...groups.entries()]
   const amEntries = amPmSplit
@@ -66,8 +62,6 @@ export default function CalendarDay({
               size={entrySize}
               compact={compact}
               bold={bold}
-              animClass={`cal-anim-${animation}`}
-              animDur={dur}
               onClick={() => onToggleGroup(files)}
             />
           </div>
