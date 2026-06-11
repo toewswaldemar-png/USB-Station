@@ -43,6 +43,8 @@ export default function SelectionPanel() {
     grouped.get(k)!.push(file)
   }
 
+  for (const [, files] of grouped) files.sort((a, b) => a.date.localeCompare(b.date))
+
   const keys = [...grouped.keys()]
   const [openKey, setOpenKey] = useState<string | null>(null)
   const prevKeysRef = useRef<string[]>([])
@@ -73,16 +75,16 @@ export default function SelectionPanel() {
 
             {/* Gruppenheader */}
             <div
-              className="flex items-center gap-2 px-3 py-1 cursor-pointer select-none hover:bg-gray-50 transition-colors"
-              onClick={() => setOpenKey(isOpen ? null : key)}
+              className={`flex items-center gap-2 px-3 py-2.5 select-none transition-colors ${files.length > 1 ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+              onClick={() => files.length > 1 && setOpenKey(isOpen ? null : key)}
             >
               <div className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
-              <span className="flex-1 text-[12px] font-semibold text-gray-900 truncate">
+              <span className="flex-1 text-sm font-semibold text-gray-900 truncate">
                 {stripDate(key)}
               </span>
               <span
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white shrink-0"
-                style={{ background: 'var(--accent)' }}
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ background: 'var(--accent-l)', color: 'var(--accent)' }}
               >
                 {selCount}
               </span>
@@ -98,10 +100,10 @@ export default function SelectionPanel() {
                     else files.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
                   }}
                 />
-                <span className={`w-[15px] h-[15px] rounded-sm border flex items-center justify-center shrink-0
+                <span className={`w-[17px] h-[17px] rounded-sm border flex items-center justify-center shrink-0
                   ${allSel ? 'bg-[var(--accent)] border-[var(--accent)]' : someSel ? 'bg-white border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
-                  {allSel && <Check size={10} className="text-white" strokeWidth={3} />}
-                  {someSel && <Minus size={10} style={{ color: 'var(--accent)' }} strokeWidth={3} />}
+                  {allSel && <Check size={11} className="text-white" strokeWidth={3} />}
+                  {someSel && <Minus size={11} style={{ color: 'var(--accent)' }} strokeWidth={3} />}
                 </span>
               </label>
             </div>
@@ -114,16 +116,16 @@ export default function SelectionPanel() {
                   return (
                     <div
                       key={f.path}
-                      className="flex items-center gap-2 pl-4 pr-3 py-0.5 hover:bg-gray-100/60 transition-colors cursor-pointer select-none"
+                      className="flex items-center gap-2 pl-4 pr-3 py-2 hover:bg-gray-100/60 transition-colors cursor-pointer select-none"
                       onClick={() => toggleFile(f.path, f)}
                     >
                       <div className="w-1 h-1 rounded-full shrink-0 bg-gray-300" />
-                      <span className={`flex-1 text-[11px] truncate transition-colors ${sel ? 'text-gray-500' : 'text-gray-300'}`}>
+                      <span className={`flex-1 text-sm truncate transition-colors ${sel ? 'text-gray-800' : 'text-gray-500'}`}>
                         {stripDate(f.title || f.path.split('/').pop() || '')}
                       </span>
-                      <span className={`w-[15px] h-[15px] rounded-sm border flex items-center justify-center shrink-0
+                      <span className={`w-[17px] h-[17px] rounded-sm border flex items-center justify-center shrink-0
                         ${sel ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
-                        {sel && <Check size={10} className="text-white" strokeWidth={3} />}
+                        {sel && <Check size={11} className="text-white" strokeWidth={3} />}
                       </span>
                     </div>
                   )
