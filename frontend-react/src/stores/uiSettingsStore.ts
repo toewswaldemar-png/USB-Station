@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 
 export interface UISettings {
-  appName: string
   fontFamily: string
   colorPreset: number
   // Kalender
@@ -17,7 +16,6 @@ export interface UISettings {
 }
 
 const DEFAULTS: UISettings = {
-  appName: 'FileStation',
   fontFamily: 'system-ui, Segoe UI, sans-serif',
   colorPreset: 0,
   todayStyle: 'ring',

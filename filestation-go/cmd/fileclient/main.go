@@ -108,7 +108,7 @@ func main() {
 	}
 	defer w.Destroy()
 
-	w.SetTitle("FileStation")
+	w.SetTitle("")
 	w.SetSize(1280, 820, webview.HintNone)
 	w.Navigate("about:blank")
 

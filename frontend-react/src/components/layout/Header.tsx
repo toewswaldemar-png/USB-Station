@@ -1,6 +1,6 @@
 import { Calendar, FolderOpen, Settings } from 'lucide-react'
 import { useClock } from '@/hooks/useClock'
-import { useUISettingsStore } from '@/stores/uiSettingsStore'
+import { useConfigStore } from '@/stores/configStore'
 
 interface Props {
   activeTab: 'calendar' | 'explorer'
@@ -10,7 +10,7 @@ interface Props {
 
 export default function Header({ activeTab, onTabChange, onOpenSettings }: Props) {
   const { time, date } = useClock()
-  const appName = useUISettingsStore(s => s.settings.appName)
+  const appName = useConfigStore(s => s.config.app_name)
 
   return (
     <header

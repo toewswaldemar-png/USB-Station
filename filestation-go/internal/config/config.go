@@ -14,12 +14,14 @@ var (
 
 // Config enthält die persistente Anwendungskonfiguration.
 type Config struct {
+	AppName          string `json:"app_name,omitempty"`
 	AudioPath        string `json:"audio_path"`
 	Port             int    `json:"port,omitempty"`
 	SettingsPassword string `json:"settings_password,omitempty"`
 	WebDavURL        string `json:"webdav_url,omitempty"`
 	WebDavUser       string `json:"webdav_user,omitempty"`
 	WebDavPassword   string `json:"webdav_password,omitempty"`
+	WebDavFolder     string `json:"webdav_folder,omitempty"`
 }
 
 func Init(cfgPath, uiSettingsPath string) {

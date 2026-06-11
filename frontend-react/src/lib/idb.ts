@@ -1,4 +1,4 @@
-const DB_NAME = 'filestation'
+const DB_NAME = 'audio-app'
 const STORE = 'kv'
 
 function openDB(): Promise<IDBDatabase> {

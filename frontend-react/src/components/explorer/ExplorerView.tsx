@@ -4,6 +4,7 @@ import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, Ch
 import { useFilesStore } from '@/stores/filesStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
+import { useConfigStore } from '@/stores/configStore'
 import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
 import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs } from './explorerCache'
@@ -11,7 +12,6 @@ import type { DirEntry } from './explorerCache'
 import FileViewer from './FileViewer'
 import { getFileType, type FileType } from '@/lib/fileType'
 
-const CLOUD_FOLDER = 'Bruderschaft'
 const COL_KEY = 'fs_colWidths'
 const SEARCH_HISTORY_KEY = 'fs_search_history'
 const MAX_HISTORY = 8
@@ -48,6 +48,7 @@ function loadSavedPath(): string[] {
 export default function ExplorerView() {
   const allFiles = useFilesStore(s => s.allFiles)
   const { selectedFiles, toggleFile, registerFileMeta } = useSelectionStore()
+  const cloudFolder = useConfigStore(s => s.config.webdav_folder || 'Cloud')
   const settings = useUISettingsStore(s => s.settings)
 
   const [path, setPath] = useState<string[]>(loadSavedPath)
@@ -75,7 +76,7 @@ export default function ExplorerView() {
   const searchRef = useRef<HTMLInputElement>(null)
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null)
 
-  const isCloud = path[0] === CLOUD_FOLDER
+  const isCloud = path[0] === cloudFolder
   const currentFolder = path.join('/')
 
   const parentRef = useRef<HTMLDivElement>(null)
@@ -203,9 +204,9 @@ export default function ExplorerView() {
     const searchLower = search.toLowerCase()
     const prefix = currentFolder ? currentFolder + '/' : ''
 
-    // Virtuellen "Bruderschaft"-Ordner am Root injizieren
+    // Virtuellen "Cloud"-Ordner am Root injizieren
     const effectiveDirEntries = (path.length === 0)
-      ? [{ name: CLOUD_FOLDER, is_dir: true, size: 0, mod_time: '' }, ...dirEntries]
+      ? [{ name: cloudFolder, is_dir: true, size: 0, mod_time: '' }, ...dirEntries]
       : dirEntries
 
     const filesByPath = new Map<string, AudioFile>()
@@ -263,8 +264,8 @@ export default function ExplorerView() {
     const rows: Row[] = [
       ...filtered.filter(e => e.is_dir)
         .sort((a, b) => {
-          if (a.name === CLOUD_FOLDER) return -1
-          if (b.name === CLOUD_FOLDER) return 1
+          if (a.name === cloudFolder) return -1
+          if (b.name === cloudFolder) return 1
           return sort.by === 'size' ? mul * (a.size - b.size) : sort.by === 'date' ? mul * a.mod_time.localeCompare(b.mod_time) : mul * a.name.localeCompare(b.name)
         })
         .map(d => ({ type: 'dir' as const, name: d.name, size: d.size, modTime: d.mod_time })),
@@ -277,7 +278,7 @@ export default function ExplorerView() {
     ]
 
     return { rows, folderFilesMap, scopeFiles } as Result
-  }, [dirEntries, allFiles, currentFolder, path, search, sort, cloudFolderFiles])
+  }, [dirEntries, allFiles, currentFolder, path, search, sort, cloudFolderFiles, cloudFolder])
 
   const nameColWidth = useMemo(() => {
     if (!rows.length) return undefined
@@ -296,9 +297,9 @@ export default function ExplorerView() {
 
   // Header-Checkbox: ✓ nur wenn der aktuelle Ordner vollständig bekannt ist (direkt via list-recursive).
   // Elternordner mit Merge-Teildaten zeigen – (someScopeSelected), bis sie selbst geladen werden.
-  // Ausnahme: Bruderschaft-Root zeigt kein – (fetch wäre zu teuer für den gesamten WebDAV-Baum).
+  // Ausnahme: Cloud-Root zeigt kein – (fetch wäre zu teuer für den gesamten WebDAV-Baum).
   const isCurrentCloudComplete = !isCloud || completedCloudFolders.has(currentFolder)
-  const isBruderschaftRoot = currentFolder === CLOUD_FOLDER
+  const isCloudRoot = currentFolder === cloudFolder
   const allScopeSelected = scopeFiles.length > 0 && isCurrentCloudComplete && scopeFiles.every(f => selectedFiles.has(f.path))
   const someScopeSelected = scopeFiles.some(f => selectedFiles.has(f.path))
 
@@ -364,12 +365,12 @@ export default function ExplorerView() {
         const immediateParent = parts.slice(0, -1).join('/')
         return { path: e.path, title: e.name, date: '', folder: immediateParent, artist: '', album: '', size: e.size, mtime: 0 } as AudioFile
       })
-      // Für jede Datei alle Vorfahren von Bruderschaft bis zum direkten Elternordner befüllen,
+      // Für jede Datei alle Vorfahren von Cloud bis zum direkten Elternordner befüllen,
       // damit Checkboxen auf jeder Navigationsebene (inkl. Elternordner) korrekt angezeigt werden.
       const byFolder = new Map<string, AudioFile[]>()
       audioFiles.forEach(f => {
         const parts = f.path.split('/')
-        // parts[0] = "Bruderschaft" (überspringen) → i ab 1
+        // parts[0] = "Cloud" (überspringen) → i ab 1
         for (let i = 1; i < parts.length - 1; i++) {
           const key = parts.slice(0, i + 1).join('/')
           const bucket = byFolder.get(key)
@@ -445,7 +446,7 @@ export default function ExplorerView() {
                 className={`px-2 py-1 rounded-full text-sm font-semibold transition-colors
                   ${i === path.length - 1 ? 'bg-white text-gray-900' : 'text-gray-400 hover:bg-white hover:text-gray-900'}`}
               >
-                {seg === CLOUD_FOLDER ? '☁ ' + seg : seg}
+                {seg === cloudFolder ? '☁ ' + seg : seg}
               </button>
             </span>
           ))}
@@ -530,10 +531,10 @@ export default function ExplorerView() {
       <div className="flex items-center border-b border-gray-100 bg-white shrink-0 text-sm font-semibold text-gray-500 tracking-wide select-none">
         <label className="w-8 flex items-center justify-center cursor-pointer">
           <input type="checkbox" checked={allScopeSelected} onChange={() => {
-            if (allScopeSelected || (isBruderschaftRoot && someScopeSelected)) {
-              // ✓ oder – am Bruderschaft-Root → alles deselektieren (kein Fetch am Root)
+            if (allScopeSelected || (isCloudRoot && someScopeSelected)) {
+              // ✓ oder – am Cloud-Root → alles deselektieren (kein Fetch am Root)
               scopeFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
-            } else if (isCloud && !isCurrentCloudComplete && !isBruderschaftRoot) {
+            } else if (isCloud && !isCurrentCloudComplete && !isCloudRoot) {
               // – oder leer (Cloud, unvollständig, nicht Root) → vollständig laden + alle auswählen
               selectCloudFolder(currentFolder)
             } else {
@@ -682,7 +683,7 @@ export default function ExplorerView() {
                     }
                   </label>
                   <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm flex items-center gap-2`}>
-                    {(isCloud || row.name === CLOUD_FOLDER)
+                    {(isCloud || row.name === cloudFolder)
                       ? <Cloud size={15} className="shrink-0 text-blue-400"/>
                       : <Folder size={15} className="shrink-0 text-yellow-400"/>}
                     <span className="text-gray-700 truncate"><Highlight text={row.name} query={search} /></span>

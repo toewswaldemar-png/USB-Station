@@ -94,7 +94,7 @@ func propfind(baseURL, davPath, user, pw string) ([]Item, error) {
 	req.SetBasicAuth(user, pw)
 	req.Header.Set("Depth", "1")
 	req.Header.Set("Content-Type", "application/xml; charset=utf-8")
-	req.Header.Set("User-Agent", "FileStation/2.0")
+	req.Header.Set("User-Agent", "AudioStation/2.0")
 
 	tr := &http.Transport{TLSClientConfig: insecureTLS()}
 	client := &http.Client{Transport: tr, Timeout: 10e9}
@@ -257,7 +257,7 @@ func Put(davPath string, body io.Reader) error {
 	}
 	req.SetBasicAuth(user, pw)
 	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("User-Agent", "FileStation/2.0")
+	req.Header.Set("User-Agent", "AudioStation/2.0")
 
 	tr := &http.Transport{TLSClientConfig: insecureTLS()}
 	client := &http.Client{Transport: tr, Timeout: 15e9}

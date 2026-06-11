@@ -143,6 +143,15 @@ func ScanCancel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "abgebrochen"})
 }
 
+// webdavFolder gibt den konfigurierten WebDAV-Ordnernamen zurück.
+// Ist kein Name gesetzt, wird "Cloud" als Standardwert verwendet.
+func webdavFolder(cfg config.Config) string {
+	if cfg.WebDavFolder != "" {
+		return cfg.WebDavFolder
+	}
+	return "Cloud"
+}
+
 // ── /api/stream ───────────────────────────────────────────────────────────────
 
 func Stream(w http.ResponseWriter, r *http.Request) {
@@ -151,12 +160,12 @@ func Stream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "path fehlt", http.StatusBadRequest)
 		return
 	}
-	// Virtueller "Bruderschaft"-Ordner → WebDAV-Stream
-	if strings.HasPrefix(p, "Bruderschaft/") {
-		webdav.Stream(w, r, strings.TrimPrefix(p, "Bruderschaft/"))
+	cfg := config.Load()
+	// Virtueller Cloud-Ordner → WebDAV-Stream
+	if folder := webdavFolder(cfg); strings.HasPrefix(p, folder+"/") {
+		webdav.Stream(w, r, strings.TrimPrefix(p, folder+"/"))
 		return
 	}
-	cfg := config.Load()
 	full := filepath.Join(cfg.AudioPath, filepath.FromSlash(p))
 	http.ServeFile(w, r, full)
 }
@@ -176,14 +185,15 @@ func Open(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := config.Load()
+	folder := webdavFolder(cfg)
 
-	// Virtueller "Bruderschaft"-Ordner → WebDAV-Listing
-	if p == "Bruderschaft" || strings.HasPrefix(p, "Bruderschaft/") {
+	// Virtueller Cloud-Ordner → WebDAV-Listing
+	if p == folder || strings.HasPrefix(p, folder+"/") {
 		if cfg.WebDavURL == "" {
 			http.Error(w, "WebDAV nicht konfiguriert", http.StatusNotFound)
 			return
 		}
-		sub := strings.TrimPrefix(strings.TrimPrefix(p, "Bruderschaft"), "/")
+		sub := strings.TrimPrefix(strings.TrimPrefix(p, folder), "/")
 		items, err := webdav.List(sub)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
@@ -405,6 +415,7 @@ func Copy(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := config.Load()
 	base := cfg.AudioPath
+	copyCloudFolder := webdavFolder(cfg)
 
 	go func() {
 		total := len(req.Paths)
@@ -412,9 +423,9 @@ func Copy(w http.ResponseWriter, r *http.Request) {
 		for i, rel := range req.Paths {
 			dst := filepath.Join(req.Target, rootFolder, filepath.FromSlash(rel))
 
-			if strings.HasPrefix(rel, "Bruderschaft/") {
+			if strings.HasPrefix(rel, copyCloudFolder+"/") {
 				// WebDAV-Datei: direkt vom Server herunterladen
-				davPath := strings.TrimPrefix(rel, "Bruderschaft/")
+				davPath := strings.TrimPrefix(rel, copyCloudFolder+"/")
 				if err := copyWebDavFile(davPath, dst); err != nil {
 					slog.Warn("WebDAV-Kopieren fehlgeschlagen", "datei", rel, "err", err)
 					hub.Notify(fmt.Sprintf("copy_error:%s", rel))
@@ -657,22 +668,23 @@ func SearchFiles(w http.ResponseWriter, r *http.Request) {
 
 // ── /api/list-recursive ───────────────────────────────────────────────────────
 //
-// Gibt alle Dateien unterhalb von `path` als flaches Array zurück (nur Bruderschaft/WebDAV).
+// Gibt alle Dateien unterhalb von `path` als flaches Array zurück (nur Cloud/WebDAV).
 // Läuft mit bis zu 5 parallelen PROPFIND-Requests; bricht bei >500 Verzeichnissen ab.
 
 func ListRecursive(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Query().Get("path")
-	if !strings.HasPrefix(p, "Bruderschaft") {
-		http.Error(w, "nur Bruderschaft-Pfade unterstützt", http.StatusBadRequest)
+	cfg := config.Load()
+	folder := webdavFolder(cfg)
+	if !strings.HasPrefix(p, folder) {
+		http.Error(w, "nur Cloud-Pfade unterstützt", http.StatusBadRequest)
 		return
 	}
-	cfg := config.Load()
 	if cfg.WebDavURL == "" {
 		http.Error(w, "WebDAV nicht konfiguriert", http.StatusServiceUnavailable)
 		return
 	}
 
-	sub := strings.TrimPrefix(strings.TrimPrefix(p, "Bruderschaft"), "/")
+	sub := strings.TrimPrefix(strings.TrimPrefix(p, folder), "/")
 	ctx := r.Context()
 
 	type fileEntry struct {
@@ -738,9 +750,9 @@ func ListRecursive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	frontendBase := "Bruderschaft/"
+	frontendBase := folder + "/"
 	if sub != "" {
-		frontendBase = "Bruderschaft/" + sub + "/"
+		frontendBase = folder + "/" + sub + "/"
 	}
 	wg.Add(1)
 	go walk(sub, frontendBase)

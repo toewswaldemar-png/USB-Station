@@ -105,11 +105,14 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [exitConfirm])
+  const [appName, setAppName] = useState(config.app_name)
+  const appNameTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [audioPath, setAudioPath] = useState(config.audio_path)
   const [canPickFolder, setCanPickFolder] = useState(false)
   const [webdavUrl, setWebdavUrl] = useState(config.webdav_url)
   const [webdavUser, setWebdavUser] = useState(config.webdav_user)
   const [webdavPw, setWebdavPw] = useState(config.webdav_password)
+  const [webdavFolder, setWebdavFolder] = useState(config.webdav_folder)
   const [webdavStatus, setWebdavStatus] = useState('')
   type ScanPhase = 'idle' | 'running' | 'done'
   const [scanPhase, setScanPhase] = useState<ScanPhase>('idle')
@@ -180,7 +183,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   }
 
   async function testWebDav() {
-    await saveConfig({ webdav_url: webdavUrl, webdav_user: webdavUser, webdav_password: webdavPw })
+    await saveConfig({ webdav_url: webdavUrl, webdav_user: webdavUser, webdav_password: webdavPw, webdav_folder: webdavFolder })
     setWebdavStatus('Verbinde…')
     const res = await fetch('/api/webdav/test')
     if (res.ok) {
@@ -216,8 +219,13 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 <input
                   className={inputCls}
                   style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
-                  value={settings.appName}
-                  onChange={e => update({ appName: e.target.value })}
+                  value={appName}
+                  onChange={e => {
+                    const v = e.target.value
+                    setAppName(v)
+                    clearTimeout(appNameTimer.current)
+                    appNameTimer.current = setTimeout(() => saveConfig({ app_name: v }), 400)
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -336,9 +344,11 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 onChange={e => setWebdavUser(e.target.value)} placeholder="Benutzer" />
               <input type="password" className={inputCls} value={webdavPw}
                 onChange={e => setWebdavPw(e.target.value)} placeholder="Passwort" />
+              <input className={inputCls} value={webdavFolder}
+                onChange={e => setWebdavFolder(e.target.value)} placeholder="Ordnername (Standard: Cloud)" />
               <div className="flex gap-2">
                 <button
-                  onClick={() => saveConfig({ webdav_url: webdavUrl, webdav_user: webdavUser, webdav_password: webdavPw })}
+                  onClick={() => saveConfig({ webdav_url: webdavUrl, webdav_user: webdavUser, webdav_password: webdavPw, webdav_folder: webdavFolder })}
                   className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
                 >
                   Speichern
@@ -358,7 +368,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
               )}
             </Card>
 
-          <Card title="FileStation Client">
+          <Card title="Client">
             <div className="flex gap-2">
               <button
                 onClick={() => { setIsFs(f => !f); clientCmd('fullscreen') }}

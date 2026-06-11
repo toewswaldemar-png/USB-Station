@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**FileStation v2** – A self-hosted audio file management app. A Go backend indexes MP3 files from a local directory into SQLite, watches for changes in real time, and serves a React frontend. A separate **Client** desktop client (`fileclient.exe`) uses Go + WebView2 to wrap the web UI for kiosk use on a different machine.
+A self-hosted audio file management app. A Go backend indexes MP3 files from a local directory into SQLite, watches for changes in real time, and serves a React frontend. A separate **Client** desktop client (`fileclient.exe`) uses Go + WebView2 to wrap the web UI for kiosk use on a different machine.
 
 The UI language is German throughout (labels, log messages, comments).
 
@@ -133,6 +133,12 @@ React 19 + TypeScript + Zustand + Tailwind CSS v4.
 
 **`groupKey(f)`** (in `lib/groupKey.ts`): returns `f.date + ' ' + (f.folder || f.title)` — used as the grouping key in both the calendar and the selection panel.
 
+## Docker / CI
+
+**Dockerfile** — multi-stage: Node build → Go build → Alpine runtime. Mounts `/data` for `config.json`, `ui_settings.json`, and `filestation.db`.
+
+**GitHub Actions** (`.github/workflows/docker.yml`) — triggers on `v*` tags and `workflow_dispatch`; builds and pushes `ghcr.io/<owner>/filestation:latest` plus the version tag to GHCR.
+
 ## Key Constraints
 
 **SMB rename-lock (Windows):** `watch_windows.go` uses a single `ReadDirectoryChangesW` handle on the root with `bWatchSubtree=TRUE` instead of per-subdirectory fsnotify handles. This prevents the NAS SMB server from locking subfolders open and blocking renames. Do not add `watcher.w.Add()` calls for subdirectories on Windows. `addNewDir` is intentionally a no-op on Windows — the recursive handle covers new subdirs automatically.
@@ -158,7 +164,7 @@ Go + `go-webview2` (no CGO). Reads `config.json` (key `server_url`) from its wor
 | GET | `/api/events` | SSE stream: `done:<count>`, `progress:<pct>:<done>:<total>`, `reload`, `usb:<json>`, `copy_progress:<pct>:<done>:<total>`, `copy_error:<rel>`, `copy_done:<total>`, `ui_settings`, `connected`, `client:<cmd>`, `dir_invalidated` |
 | GET | `/api/scan` | Trigger incremental rescan |
 | POST | `/api/scan/cancel` | Cancel running scan |
-| GET | `/api/stream?path=` | Stream an MP3 file; prefix `Bruderschaft/` routes to WebDAV |
+| GET | `/api/stream?path=` | Stream an MP3 file; configured cloud-folder prefix routes to WebDAV |
 | GET | `/api/open?path=` | Read text file content or directory listing (JSON, legacy flat array) — backed by DirService cache |
 | GET | `/api/browse?path=&offset=&limit=&sort=&asc=&filter=` | Paginated directory listing with server-side sort + filter; `sort`: `name`\|`size`\|`modtime`\|`type` |
 | POST | `/api/save` | Write text file content |
@@ -171,3 +177,6 @@ Go + `go-webview2` (no CGO). Reads `config.json` (key `server_url`) from its wor
 | GET | `/api/pick-folder` | Native OS folder picker dialog (Windows: IFileDialog; other: no-op) |
 | POST | `/api/client-command` | Send `fullscreen`/`reload`/`exit` command to kiosk client via SSE |
 | GET | `/api/verse` | Daily Bible verse |
+| GET | `/api/search?q=` | Full-text search over indexed files (min 2 chars, max 50 results) |
+| GET | `/api/list-recursive?path=` | Recursive WebDAV listing; only cloud-folder paths supported |
+| GET | `/api/capabilities` | Server feature flags: `{"pick_folder": bool}` |
