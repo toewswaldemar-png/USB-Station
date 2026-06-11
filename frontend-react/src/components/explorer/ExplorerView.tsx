@@ -426,25 +426,23 @@ export default function ExplorerView() {
     <div className="flex flex-col h-full relative">
       {/* Breadcrumb + Suche */}
       <div className="flex items-center gap-2 px-4 py-2 z-10 relative shrink-0 bg-gray-50">
-        <div className="flex items-center gap-0">
-          <button onClick={goBack} disabled={histIdx === 0 || path.length === 0} className="p-1.5 rounded-full hover:bg-white disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
-            <ArrowLeft size={19}/>
+        <div className="flex-1 min-w-0 flex items-center overflow-hidden border border-gray-200 rounded-full bg-white px-2 h-9">
+          <button onClick={goBack} disabled={histIdx === 0 || path.length === 0} className="p-1.5 rounded-full hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
+            <ArrowLeft size={17}/>
           </button>
-          <button onClick={goForward} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-full hover:bg-white disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
-            <ArrowRight size={19}/>
+          <button onClick={goForward} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-full hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
+            <ArrowRight size={17}/>
           </button>
-        </div>
-        <button onClick={() => pushPath([])} className="p-1.5 rounded-full hover:bg-white text-gray-500 hover:text-[var(--accent)] transition-colors">
-          <Home size={19}/>
-        </button>
-        <div className="flex items-center gap-0">
+          <button onClick={() => pushPath([])} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
+            <Home size={17}/>
+          </button>
           {path.map((seg, i) => (
-            <span key={i} className="flex items-center gap-0.5">
-              <ChevronRight size={17} className="text-gray-300"/>
+            <span key={i} className="flex items-center gap-0.5 shrink-0">
+              <ChevronRight size={14} className="text-gray-300"/>
               <button
                 onClick={() => pushPath(path.slice(0, i + 1))}
-                className={`px-2 py-1 rounded-full text-sm font-semibold transition-colors
-                  ${i === path.length - 1 ? 'bg-white text-gray-900' : 'text-gray-400 hover:bg-white hover:text-gray-900'}`}
+                className={`px-1.5 py-0.5 rounded-full text-sm font-semibold transition-colors
+                  ${i === path.length - 1 ? 'text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}
               >
                 {seg === cloudFolder ? '☁ ' + seg : seg}
               </button>
@@ -452,7 +450,7 @@ export default function ExplorerView() {
           ))}
         </div>
         {/* Suchfeld mit ✕, History-Dropdown und globalen Ergebnissen */}
-        <div className="ml-auto relative">
+        <div className="relative">
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
@@ -466,7 +464,7 @@ export default function ExplorerView() {
                 if (e.key === 'Enter') saveToHistory(search)
               }}
               placeholder="Suchen… (Strg+F)"
-              className="border border-gray-200 rounded-full pl-7 pr-7 py-1 text-sm w-52 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
+              className="border border-gray-200 rounded-full pl-7 pr-7 text-sm w-52 h-9 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
               style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
             />
             {search && (
