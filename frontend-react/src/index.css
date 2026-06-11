@@ -58,6 +58,10 @@ body {
 .cal-month-next { animation: cal-month-next var(--cal-dur, 0.25s) ease both }
 .cal-month-prev { animation: cal-month-prev var(--cal-dur, 0.25s) ease both }
 
+/* Scrollbalken ausblenden */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Rubber-Band-Auswahl */
 .rubber-band {
   position: fixed;
