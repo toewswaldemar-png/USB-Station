@@ -425,7 +425,7 @@ export default function ExplorerView() {
   return (
     <div className="flex flex-col h-full relative">
       {/* Breadcrumb + Suche */}
-      <div className="flex items-center gap-2 px-4 py-2 shadow-sm z-10 relative shrink-0 bg-gray-50">
+      <div className="flex items-center gap-2 px-4 py-2 z-10 relative shrink-0 bg-gray-50">
         <div className="flex items-center gap-0">
           <button onClick={goBack} disabled={histIdx === 0 || path.length === 0} className="p-1.5 rounded-full hover:bg-white disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors">
             <ArrowLeft size={19}/>
