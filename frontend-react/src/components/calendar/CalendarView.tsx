@@ -204,8 +204,8 @@ export default function CalendarView() {
           {DAY_LABELS.map((d, i) => (
             <div
               key={d}
-              className={`text-center text-xs font-extrabold py-2 uppercase tracking-wide
-                ${WEEKEND_COLS.includes(i) ? 'text-red-400' : 'text-gray-600'}`}
+              className={`text-center text-xs font-medium py-2 uppercase tracking-wide
+                ${WEEKEND_COLS.includes(i) ? 'text-red-400' : 'text-gray-400'}`}
             >
               {d}
             </div>
