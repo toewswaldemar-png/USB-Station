@@ -100,6 +100,7 @@ export default function ExplorerView() {
       fetchDir(key).then(data => {
         if (navId.current !== id) return
         if (data) setDirEntries(data)
+        else if (key) navigate(newPath.slice(0, -1))
       })
       return
     }
@@ -123,10 +124,12 @@ export default function ExplorerView() {
   const pathRef = useRef(path)
   pathRef.current = path
   useEffect(() => onCacheInvalidated(() => {
-    fetchDir(pathRef.current.join('/')).then(data => {
+    const p = pathRef.current
+    fetchDir(p.join('/')).then(data => {
       if (data) setDirEntries(data)
+      else if (p.length > 0) navigate(p.slice(0, -1))
     })
-  }), [])
+  }), [navigate])
 
   // Aktuellen Pfad persistieren — wird beim Neuladen wiederhergestellt.
   useEffect(() => {

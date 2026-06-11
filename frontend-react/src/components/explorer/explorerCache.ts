@@ -63,6 +63,12 @@ export function onCacheInvalidated(cb: () => void): () => void {
 export function invalidateExplorerCache() {
   _cache.clear()
   _pending.clear()
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i)
+      if (k?.startsWith(SS_PREFIX)) sessionStorage.removeItem(k)
+    }
+  } catch {}
   _listeners.forEach(cb => cb())
 }
 
