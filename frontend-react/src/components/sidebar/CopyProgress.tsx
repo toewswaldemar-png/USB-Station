@@ -55,7 +55,7 @@ export default function CopyProgress({ sseMsg, selectedDrive }: Props) {
         <button
           onClick={handleCopy}
           disabled={!selectedDrive || progress !== null || paths.length === 0}
-          className="flex-1 py-1.5 rounded-lg text-sm text-white font-semibold disabled:opacity-40 flex items-center justify-center gap-1.5 active:scale-[0.96] active:opacity-80 transition-all duration-100"
+          className="flex-1 py-1.5 rounded-lg text-sm text-white font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 active:scale-[0.96] active:opacity-80 transition-all duration-100"
           style={{ background: 'var(--accent)' }}
         >
           <Copy size={14} />
