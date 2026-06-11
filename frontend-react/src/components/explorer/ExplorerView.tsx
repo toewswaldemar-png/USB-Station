@@ -194,7 +194,7 @@ export default function ExplorerView() {
 
     // Virtuellen "Cloud"-Ordner am Root injizieren
     const effectiveDirEntries = (path.length === 0)
-      ? [{ name: cloudFolder, is_dir: true, size: 0, mod_time: '' }, ...dirEntries]
+      ? [{ name: cloudFolder, is_dir: true, size: 0, mod_time: '' }, ...dirEntries.filter(e => e.name !== cloudFolder)]
       : dirEntries
 
     const filesByPath = new Map<string, AudioFile>()
