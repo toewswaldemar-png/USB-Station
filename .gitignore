@@ -21,6 +21,9 @@ filestation-go/webembed/web/
 # Node
 frontend-react/node_modules/
 frontend-react/dist/
+frontend-react/config.json
+frontend-react/ui_settings.json
+frontend-react/filestation.db
 
 # Audiodateien (zu groß für Git)
 Audio/
