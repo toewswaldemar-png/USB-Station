@@ -46,7 +46,10 @@ function loadSavedPath(): string[] {
 export default function ExplorerView() {
   const allFiles = useFilesStore(s => s.allFiles)
   const { selectedFiles, toggleFile, registerFileMeta } = useSelectionStore()
-  const cloudFolder = useConfigStore(s => s.config.webdav_folder || 'Cloud')
+  const webdavFolderRaw = useConfigStore(s => s.config.webdav_folder)
+  const cloudFolder = webdavFolderRaw || 'Cloud'
+  const webdavUrl = useConfigStore(s => s.config.webdav_url)
+  const webdavConfigured = !!webdavUrl || !!webdavFolderRaw
   const settings = useUISettingsStore(s => s.settings)
 
   const [path, setPath] = useState<string[]>(loadSavedPath)
@@ -72,7 +75,7 @@ export default function ExplorerView() {
   const searchRef = useRef<HTMLInputElement>(null)
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null)
 
-  const isCloud = path[0] === cloudFolder
+  const isCloud = !!webdavUrl && path[0] === cloudFolder
   const currentFolder = path.join('/')
 
   const parentRef = useRef<HTMLDivElement>(null)
@@ -192,8 +195,8 @@ export default function ExplorerView() {
     const searchLower = search.toLowerCase()
     const prefix = currentFolder ? currentFolder + '/' : ''
 
-    // Virtuellen "Cloud"-Ordner am Root injizieren
-    const effectiveDirEntries = (path.length === 0)
+    // Virtuellen "Cloud"-Ordner am Root injizieren; lokalen Ordner gleichen Namens ausblenden (verhindert Duplikat + Stale-Cache-Bug)
+    const effectiveDirEntries = (path.length === 0 && webdavConfigured)
       ? [{ name: cloudFolder, is_dir: true, size: 0, mod_time: '' }, ...dirEntries.filter(e => e.name !== cloudFolder)]
       : dirEntries
 
@@ -266,7 +269,7 @@ export default function ExplorerView() {
     ]
 
     return { rows, folderFilesMap, scopeFiles } as Result
-  }, [dirEntries, allFiles, currentFolder, path, search, sort, cloudFolderFiles, cloudFolder])
+  }, [dirEntries, allFiles, currentFolder, path, search, sort, cloudFolderFiles, cloudFolder, webdavConfigured])
 
   const nameColWidth = useMemo(() => {
     if (!rows.length) return undefined
@@ -432,7 +435,7 @@ export default function ExplorerView() {
                 className={`px-1.5 py-0.5 rounded-full text-sm font-semibold transition-colors
                   ${i === path.length - 1 ? 'text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}
               >
-                {seg === cloudFolder ? '☁ ' + seg : seg}
+                {(seg === cloudFolder && isCloud) ? '☁ ' + seg : seg}
               </button>
             </span>
           ))}
@@ -654,7 +657,7 @@ export default function ExplorerView() {
                     }
                   </label>
                   <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm flex items-center gap-2`}>
-                    {(isCloud || row.name === cloudFolder)
+                    {(isCloud || (row.name === cloudFolder && webdavConfigured))
                       ? <Cloud size={15} className="shrink-0 text-blue-400"/>
                       : <Folder size={15} className="shrink-0 text-yellow-400"/>}
                     <span className="text-gray-700 truncate"><Highlight text={row.name} query={search} /></span>
