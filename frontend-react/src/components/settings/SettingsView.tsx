@@ -102,8 +102,8 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
         setExitConfirm(false)
       }
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('mousedown', handler, true)
+    return () => document.removeEventListener('mousedown', handler, true)
   }, [exitConfirm])
   const [appName, setAppName] = useState(config.app_name)
   const appNameTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -205,7 +205,10 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 sticky top-0 bg-white z-10 border-b border-gray-100">
-          <span className="font-bold text-base text-gray-900">Einstellungen</span>
+          <div>
+            <span className="font-bold text-base text-gray-900">Einstellungen</span>
+            <p className="text-xs text-gray-400">v{__APP_VERSION__}</p>
+          </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
             <X size={16} className="text-gray-500" />
           </button>
@@ -288,14 +291,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                   onChange={v => update({ calAnimSpeed: v as 'slow' | 'normal' | 'fast' })}
                 />
               </Field>
-              <Field label="Wisch-Schwelle">
-                <Seg
-                  value={String(settings.swipeThreshold)}
-                  options={[{ label: 'Kurz', value: '30' }, { label: 'Mittel', value: '60' }, { label: 'Weit', value: '90' }]}
-                  onChange={v => update({ swipeThreshold: Number(v) })}
-                />
-              </Field>
-              <ToggleField label="AM/PM-Aufteilung" checked={settings.amPmSplit} onChange={v => update({ amPmSplit: v })} />
+<ToggleField label="AM/PM-Aufteilung" checked={settings.amPmSplit} onChange={v => update({ amPmSplit: v })} />
             </Card>
 
             <Card title="Audioverzeichnis">
@@ -348,17 +344,23 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 onChange={e => setWebdavFolder(e.target.value)} placeholder="Ordnername (Standard: Cloud)" />
               <div className="flex gap-2">
                 <button
+                  onClick={() => { setWebdavUrl(''); setWebdavUser(''); setWebdavPw(''); setWebdavFolder(''); setWebdavStatus(''); saveConfig({ webdav_url: '', webdav_user: '', webdav_password: '', webdav_folder: '' }) }}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 active:scale-[0.96] active:bg-gray-100 transition-all duration-100"
+                >
+                  Reset
+                </button>
+                <button
                   onClick={() => saveConfig({ webdav_url: webdavUrl, webdav_user: webdavUser, webdav_password: webdavPw, webdav_folder: webdavFolder })}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 active:scale-[0.96] active:bg-gray-100 transition-all duration-100"
                 >
                   Speichern
                 </button>
                 <button
                   onClick={testWebDav}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white active:scale-[0.96] active:opacity-80 transition-all duration-100"
                   style={{ background: 'var(--accent)' }}
                 >
-                  Verbindung testen
+                  Prüfen
                 </button>
               </div>
               {webdavStatus && (
@@ -372,13 +374,13 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
             <div className="flex gap-2">
               <button
                 onClick={() => { setIsFs(f => !f); clientCmd('fullscreen') }}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 active:scale-[0.96] active:bg-gray-100 transition-all duration-100 flex items-center justify-center gap-1.5"
               >
                 {isFs ? <><Minimize size={15} /> Fenster</> : <><Maximize size={15} /> Vollbild</>}
               </button>
               <button
                 onClick={() => clientCmd('reload')}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-50 active:scale-[0.96] active:bg-gray-100 transition-all duration-100 flex items-center justify-center gap-1.5"
               >
                 <RotateCcw size={15} /> Reload
               </button>
@@ -394,7 +396,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                     exitTimer.current = setTimeout(() => setExitConfirm(false), 3000)
                   }
                 }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white active:scale-[0.96] active:opacity-80 transition-all duration-100 flex items-center justify-center gap-1.5"
                 style={{ background: exitConfirm ? '#ef4444' : 'var(--accent)' }}
               >
                 {exitConfirm

@@ -22,7 +22,7 @@ const DEFAULTS: UISettings = {
   entrySize: 'md',
   calAnimation: 'sanft',
   calAnimSpeed: 'normal',
-  swipeThreshold: 60,
+  swipeThreshold: 30,
   amPmSplit: true,
   sortBy: 'date',
   sortDir: 'desc',
