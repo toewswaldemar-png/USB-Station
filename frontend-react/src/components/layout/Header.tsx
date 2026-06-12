@@ -6,9 +6,10 @@ interface Props {
   activeTab: 'calendar' | 'explorer'
   onTabChange: (tab: 'calendar' | 'explorer') => void
   onOpenSettings: () => void
+  role?: 'admin' | 'cloud'
 }
 
-export default function Header({ activeTab, onTabChange, onOpenSettings }: Props) {
+export default function Header({ activeTab, onTabChange, onOpenSettings, role = 'admin' }: Props) {
   const { time, date } = useClock()
   const appName = useConfigStore(s => s.config.app_name)
 
@@ -52,7 +53,7 @@ export default function Header({ activeTab, onTabChange, onOpenSettings }: Props
           <span className="opacity-40">|</span>
           <span className="opacity-80">{date}</span>
         </div>
-        {!new URLSearchParams(window.location.search).has('kiosk') && (
+        {role !== 'cloud' && !new URLSearchParams(window.location.search).has('kiosk') && (
           <button
             onClick={onOpenSettings}
             className="p-1.5 rounded hover:bg-white/20 transition-colors"

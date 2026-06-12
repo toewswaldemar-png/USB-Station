@@ -5,6 +5,7 @@ import { useConfigStore } from '@/stores/configStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useSSE } from '@/hooks/useSSE'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useUserStore } from '@/stores/userStore'
 import { COLOR_PRESETS } from '@/types'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -33,6 +34,8 @@ export default function App() {
   const refreshFiles = useFilesStore(s => s.refreshFiles)
   const loadConfig = useConfigStore(s => s.load)
   const loadUI = useUISettingsStore(s => s.load)
+  const loadUser = useUserStore(s => s.load)
+  const role = useUserStore(s => s.role)
   const settings = useUISettingsStore(s => s.settings)
   const uiLoaded = useUISettingsStore(s => s.loaded)
 
@@ -59,7 +62,8 @@ export default function App() {
     loadConfig()
     loadUI()
     loadFiles()
-  }, [loadConfig, loadUI, loadFiles])
+    loadUser()
+  }, [loadConfig, loadUI, loadFiles, loadUser])
 
   // Einstellungen → CSS-Variablen (erst nach API-Antwort, damit index.html-Cache nicht überschrieben wird)
   useEffect(() => {
@@ -81,7 +85,7 @@ export default function App() {
   }
 
   if (isMobile) {
-    return <MobileLayout sseMsg={sseMsg} />
+    return <MobileLayout sseMsg={sseMsg} role={role} />
   }
 
   return (
@@ -90,6 +94,7 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={switchTab}
         onOpenSettings={() => setSettingsOpen(true)}
+        role={role}
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar sseMsg={sseMsg} />

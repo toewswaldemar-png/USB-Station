@@ -9,13 +9,14 @@ import SettingsView from '@/components/settings/SettingsView'
 
 interface Props {
   sseMsg: { data: string }
+  role?: 'admin' | 'cloud'
 }
 
 function ErrorFallback({ error }: { error: unknown }) {
   return <p className="text-red-600 p-4">Fehler: {String(error)}</p>
 }
 
-export default function MobileLayout({ sseMsg }: Props) {
+export default function MobileLayout({ sseMsg, role = 'admin' }: Props) {
   const appName = useConfigStore(s => s.config.app_name)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const currentTrack = usePlayerStore(s => s.currentTrack)
@@ -42,7 +43,7 @@ export default function MobileLayout({ sseMsg }: Props) {
               </svg>
             </button>
           )}
-          {!new URLSearchParams(window.location.search).has('kiosk') && (
+          {role !== 'cloud' && !new URLSearchParams(window.location.search).has('kiosk') && (
             <button
               onClick={() => setSettingsOpen(true)}
               className="p-2 rounded hover:bg-white/20 transition-colors"
