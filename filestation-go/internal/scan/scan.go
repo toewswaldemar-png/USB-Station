@@ -19,6 +19,16 @@ const (
 	notifyEvery = 50
 )
 
+var audioExts = map[string]bool{
+	".mp3": true, ".wav": true, ".flac": true,
+	".ogg": true, ".m4a": true, ".aac": true,
+}
+
+func IsAudioFile(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	return audioExts[ext]
+}
+
 var (
 	scanRunning atomic.Int32
 	scanCancel  atomic.Int32
@@ -71,7 +81,7 @@ func Incremental(basePath string, notify NotifyFunc) {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		if !strings.HasSuffix(strings.ToLower(d.Name()), ".mp3") {
+		if !IsAudioFile(d.Name()) {
 			return nil
 		}
 		fi, err := d.Info()

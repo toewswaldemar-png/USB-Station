@@ -59,7 +59,7 @@ func (watcher *Watcher) loop() {
 
 func (watcher *Watcher) handleEvent(event fsnotify.Event) {
 	path := filepath.Clean(event.Name)
-	isMP3 := strings.HasSuffix(strings.ToLower(path), ".mp3")
+	isMP3 := scan.IsAudioFile(path)
 
 	if watcher.onDirChange != nil {
 		watcher.onDirChange(filepath.Dir(path))
@@ -164,7 +164,7 @@ func (watcher *Watcher) scanDir(dirPath string) {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		if !strings.HasSuffix(strings.ToLower(d.Name()), ".mp3") {
+		if !scan.IsAudioFile(d.Name()) {
 			return nil
 		}
 		fi, _ := d.Info()
@@ -192,7 +192,7 @@ func (watcher *Watcher) reconcile() {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		if strings.HasSuffix(strings.ToLower(d.Name()), ".mp3") {
+		if scan.IsAudioFile(d.Name()) {
 			rel := filepath.ToSlash(strings.TrimPrefix(path, watcher.base+string(os.PathSeparator)))
 			fsPaths[rel] = struct{}{}
 		}
