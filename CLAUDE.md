@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A self-hosted audio file management app. A Go backend indexes MP3 files from a local directory into SQLite, watches for changes in real time, and serves a React frontend. A separate **Client** desktop client (`fileclient.exe`) uses Go + WebView2 to wrap the web UI for kiosk use on a different machine.
+A self-hosted audio file management app. A Go backend indexes audio files (`.mp3`, `.wav`, `.flac`, `.ogg`, `.m4a`, `.aac`) from a local directory into SQLite, watches for changes in real time, and serves a React frontend. A separate **Client** desktop client (`fileclient.exe`) uses Go + WebView2 to wrap the web UI for kiosk use on a different machine.
+
+The UI renders a **mobile layout** (portrait phones ≤ 768 px) or a **desktop layout** — detected via `useMediaQuery('(max-width: 768px) and (orientation: portrait)')`. Landscape on a phone shows the desktop layout.
 
 The UI language is German throughout (labels, log messages, comments).
 
@@ -92,7 +94,7 @@ go test ./internal/scan -v
 | `cmd/server/main.go` | Entry point: initializes config, DB, SSE hub, watcher, USB poller; serves on port from `config.json` (default `58427`; `_build/Server/config.json` in production sets `8000`) |
 | `internal/api/routes.go` | All HTTP handler registrations (Go 1.22 `net/http` ServeMux with method+path patterns) |
 | `internal/db/db.go` | SQLite (WAL mode, `modernc.org/sqlite`). Table `files` keyed by relative path; atomic `_version` counter + ETag for cache invalidation |
-| `internal/scan/` | Incremental scan with 8-worker goroutine pool; `date.go` extracts dates (ISO → 8-digit → German `DD.MM.YYYY` → 6-digit → year-only → ID3 fallback); unit tests in `date_test.go` |
+| `internal/scan/` | Incremental scan with 8-worker goroutine pool; `date.go` extracts dates (ISO → 8-digit → German `DD.MM.YYYY` → 6-digit → year-only → ID3 fallback); unit tests in `date_test.go`. `IsAudioFile(name)` helper checks extension against `.mp3/.wav/.flac/.ogg/.m4a/.aac` — used by scanner and watcher. |
 | `internal/fs/service.go` | `DirService`: cached directory listings (TTL + fsnotify), SWR background-refresh, per-directory RWMutex, `os.ReadDir`-based (never recursive). Used by `Open` and `Browse` handlers. |
 | `internal/watch/` | `watch.go` + platform split: on **Windows** (`watch_windows.go`) a single `ReadDirectoryChangesW(bWatchSubtree=TRUE)` handle on the root (no per-subdir handles → no SMB rename lock); on **Linux** (`watch_other.go`) standard fsnotify per-subdir adds. Per-path debounce, 10-min reconcile loop (safety net). Fires `dir_invalidated` SSE via `onDirChange` callback → `dirInvalidate` closure in `main.go`. |
 | `internal/sse/sse.go` | Hub: `Register`/`Unregister` channels, `Notify()`, 30 s ping keepalive |
@@ -111,23 +113,28 @@ go test ./internal/scan -v
 React 19 + TypeScript + Zustand + Tailwind CSS v4. Import alias `@` resolves to `src/`. Build-time global `__APP_VERSION__` is injected from `git describe --tags --always`.
 
 **Stores:**
-- `filesStore.ts` – all MP3 records; two-layer cache: IndexedDB (`idbGet`/`idbSet`) for instant load + `/api/version` check before network fetch. Also maintains a pre-built `filesByYearMonth: Map<ym, Map<groupKey, AudioFile[]>>` index used by `CalendarView`. `set()` is called before `idbSet()` to avoid blocking on IDB errors.
+- `filesStore.ts` – all audio records; two-layer cache: IndexedDB (`idbGet`/`idbSet`) for instant load + `/api/version` check before network fetch. Also maintains a pre-built `filesByYearMonth: Map<ym, Map<groupKey, AudioFile[]>>` index used by `CalendarView`. `set()` is called before `idbSet()` to avoid blocking on IDB errors.
 - `selectionStore.ts` – selected file paths with group-level and file-level filter logic; `effectivePaths` is what gets copied
 - `uiSettingsStore.ts` – visual customization (color presets, fonts, calendar options); auto-saves with 400 ms debounce
 - `configStore.ts` – audio path and server config
 - `webdavStore.ts` – WebDAV directory listing and navigation state
+- `playerStore.ts` – mobile audio player state: `currentTrack`, `folderTracks` (playlist = current folder), `isPlaying`, `playMode` (`normal`|`repeat-one`|`repeat-all`|`shuffle`, default `repeat-all`). Actions: `playTrack`, `stop`, `playNext`, `playPrev`, `playOnEnded`, `cyclePlayMode`.
+- `userStore.ts` – fetches role from `/api/me` on startup; `role: 'admin' | 'cloud'`. Cloud role hides the settings button.
 
 **Hooks (`src/hooks/`):**
 - `useSSE.ts` – opens `EventSource('/api/events')` with 3 s reconnect; called by `App.tsx` with a callback
 - `useUsbDrives.ts` – subscribes to USB SSE events and exposes the current drive list
 - `useClock.ts` – live clock ticker for the header
+- `useMediaQuery.ts` – reactive wrapper around `window.matchMedia`; used in `App.tsx` to switch between mobile and desktop layout
 
 **Key components:**
-- `App.tsx` – root layout; uses `useSSE` hook; handles `done:` → `refreshFiles()`, `ui_settings` → `loadUI()`, `connected` → `refreshFiles()` (if empty); passes `sseMsg: { data: string }` prop (object wrapper, not plain string — ensures React re-renders even when two consecutive SSE messages carry identical text)
+- `App.tsx` – root layout; uses `useSSE` hook; handles `done:` → `refreshFiles()`, `ui_settings` → `loadUI()`, `connected` → `refreshFiles()` (if empty); passes `sseMsg: { data: string }` prop (object wrapper, not plain string — ensures React re-renders even when two consecutive SSE messages carry identical text); switches to `<MobileLayout>` when `useMediaQuery` matches portrait phone
 - `calendar/CalendarView.tsx` – month grid; reads `filesByYearMonth` from filesStore; files grouped by `groupKey()` (date + folder name), max 2 entries per day cell
-- `explorer/ExplorerView.tsx` – folder tree browser with virtual scrolling (`@tanstack/react-virtual`) and rubber-band selection
+- `explorer/ExplorerView.tsx` – folder tree browser with virtual scrolling (`@tanstack/react-virtual`) and rubber-band selection; accepts `isMobile` prop: hides checkboxes/date/size columns, shows compact breadcrumb (⌂ + back), audio click → `playerStore.playTrack` instead of file viewer
 - `settings/SettingsView.tsx` – overlay panel; uses `sseMsg` + `useRef(scanStarted)` to detect scan completion and call `refreshFiles()`
 - `sidebar/SelectionPanel.tsx` – accordion list of selected groups in sidebar; one group open at a time
+- `mobile/MobileLayout.tsx` – full-height (`100dvh`) layout for portrait phones: accent header with app name + stop button (`invisible` when idle to keep height stable), `ExplorerView isMobile`, `MobilePlayerBar`
+- `mobile/MobilePlayerBar.tsx` – audio player bar: Play/Pause, SkipBack (iOS-style: >3 s → restart, else prev), SkipForward, progress range, time display, play-mode cycle button. Uses `useLayoutEffect` to reset progress to 0 before paint on track change (prevents old-position flash).
 
 **Accent color**: CSS variables `--accent`, `--accent-l`, `--accent-xl` set globally from `uiSettingsStore.calColorPreset`. All themed elements use these variables.
 
@@ -137,7 +144,18 @@ React 19 + TypeScript + Zustand + Tailwind CSS v4. Import alias `@` resolves to 
 
 **Dockerfile** — multi-stage: Node build → Go build → Alpine runtime. Mounts `/data` for `config.json`, `ui_settings.json`, and `filestation.db`.
 
-**GitHub Actions** (`.github/workflows/docker.yml`) — triggers on `v*` tags and `workflow_dispatch`; builds and pushes `ghcr.io/<owner>/filestation:latest` plus the version tag to GHCR.
+**GitHub Actions** (`.github/workflows/docker.yml`) — triggers on `v*` tags and `workflow_dispatch`; builds and pushes `ghcr.io/<owner>/filestation:latest` plus the version tag to GHCR. On Unraid: pull new image + recreate container (restart alone does not apply the new image).
+
+## Internet Access via Nginx Proxy Manager
+
+See `NGINX_SETUP.md` for full setup. Two proxy hosts on the same backend port `58427`:
+
+| Host | `X-Role` header | Auth |
+|---|---|---|
+| `admin.domain.tld` | `admin` | LAN free, internet: Basic Auth |
+| `cloud.domain.tld` | `cloud` | LAN free, internet: Basic Auth |
+
+`Satisfy Any` + `Allow <LAN-subnet>` → LAN users bypass Basic Auth. The `X-Role` header is injected in the Advanced tab of each proxy host and read by `/api/me` to determine which UI features to show.
 
 ## Key Constraints
 
@@ -164,7 +182,8 @@ Go + `go-webview2` (no CGO). Reads `config.json` (key `server_url`) from its wor
 | GET | `/api/events` | SSE stream: `done:<count>`, `progress:<pct>:<done>:<total>`, `reload`, `usb:<json>`, `copy_progress:<pct>:<done>:<total>`, `copy_error:<rel>`, `copy_done:<total>`, `ui_settings`, `connected`, `client:<cmd>`, `dir_invalidated` |
 | GET | `/api/scan` | Trigger incremental rescan |
 | POST | `/api/scan/cancel` | Cancel running scan |
-| GET | `/api/stream?path=` | Stream an MP3 file; configured cloud-folder prefix routes to WebDAV |
+| GET | `/api/me` | Returns `{"role":"admin"|"cloud"}` based on `X-Role` request header (set by Nginx Proxy Manager); no header → `admin` |
+| GET | `/api/stream?path=` | Stream an audio file; configured cloud-folder prefix routes to WebDAV |
 | GET | `/api/open?path=` | Read text file content or directory listing (JSON, legacy flat array) — backed by DirService cache |
 | GET | `/api/browse?path=&offset=&limit=&sort=&asc=&filter=` | Paginated directory listing with server-side sort + filter; `sort`: `name`\|`size`\|`modtime`\|`type` |
 | POST | `/api/save` | Write text file content |
