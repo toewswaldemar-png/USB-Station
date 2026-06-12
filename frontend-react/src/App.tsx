@@ -22,7 +22,7 @@ function ErrorFallback({ error }: { error: unknown }) {
 }
 
 export default function App() {
-  const isMobile = useMediaQuery('(max-width: 768px)')
+  const isMobile = useMediaQuery('(max-width: 768px) and (orientation: portrait)')
   const [activeTab, setActiveTab] = useState<'calendar' | 'explorer'>(
     () => (localStorage.getItem(ACTIVE_TAB_KEY) as 'calendar' | 'explorer') || 'calendar'
   )
