@@ -89,7 +89,7 @@ go test ./internal/scan -v
 
 | Module | Responsibility |
 |---|---|
-| `cmd/server/main.go` | Entry point: initializes config, DB, SSE hub, watcher, USB poller; serves on `:8000` |
+| `cmd/server/main.go` | Entry point: initializes config, DB, SSE hub, watcher, USB poller; serves on port from `config.json` (default `58427`; `_build/Server/config.json` in production sets `8000`) |
 | `internal/api/routes.go` | All HTTP handler registrations (Go 1.22 `net/http` ServeMux with method+path patterns) |
 | `internal/db/db.go` | SQLite (WAL mode, `modernc.org/sqlite`). Table `files` keyed by relative path; atomic `_version` counter + ETag for cache invalidation |
 | `internal/scan/` | Incremental scan with 8-worker goroutine pool; `date.go` extracts dates (ISO → 8-digit → German `DD.MM.YYYY` → 6-digit → year-only → ID3 fallback); unit tests in `date_test.go` |
@@ -108,7 +108,7 @@ go test ./internal/scan -v
 
 ### Frontend (`frontend-react/src/`)
 
-React 19 + TypeScript + Zustand + Tailwind CSS v4.
+React 19 + TypeScript + Zustand + Tailwind CSS v4. Import alias `@` resolves to `src/`. Build-time global `__APP_VERSION__` is injected from `git describe --tags --always`.
 
 **Stores:**
 - `filesStore.ts` – all MP3 records; two-layer cache: IndexedDB (`idbGet`/`idbSet`) for instant load + `/api/version` check before network fetch. Also maintains a pre-built `filesByYearMonth: Map<ym, Map<groupKey, AudioFile[]>>` index used by `CalendarView`. `set()` is called before `idbSet()` to avoid blocking on IDB errors.

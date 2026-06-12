@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -121,8 +122,25 @@ func main() {
 	}()
 
 	slog.Info("Server gestartet", "addr", fmt.Sprintf("http://localhost:%d", port))
+	for _, ip := range lanIPs() {
+		slog.Info("Netzwerk", "addr", fmt.Sprintf("http://%s:%d", ip, port))
+	}
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("Server-Fehler", "err", err)
 		os.Exit(1)
 	}
+}
+
+func lanIPs() []string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	var ips []string
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+			ips = append(ips, ipnet.IP.String())
+		}
+	}
+	return ips
 }
