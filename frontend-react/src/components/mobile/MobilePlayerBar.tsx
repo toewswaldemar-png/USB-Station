@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Play, Pause, SkipBack, SkipForward, X, Repeat, Repeat1, Shuffle } from 'lucide-react'
 import { usePlayerStore, type PlayMode } from '@/stores/playerStore'
 
@@ -37,6 +37,12 @@ export default function MobilePlayerBar() {
     : -1
   const hasPrev = trackIdx > 0
   const hasNext = trackIdx >= 0 && trackIdx < folderTracks.length - 1
+
+  // Progress sofort vor dem Paint zurücksetzen (verhindert Flash der alten Position)
+  useLayoutEffect(() => {
+    setProgress(0)
+    setDuration(0)
+  }, [currentTrack?.path])
 
   // Neuen Track laden wenn currentTrack wechselt
   useEffect(() => {
