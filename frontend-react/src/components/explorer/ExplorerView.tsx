@@ -5,6 +5,7 @@ import { useFilesStore } from '@/stores/filesStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useConfigStore } from '@/stores/configStore'
+import { usePlayerStore } from '@/stores/playerStore'
 import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
 import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs } from './explorerCache'
@@ -43,7 +44,11 @@ function loadSavedPath(): string[] {
   try { return JSON.parse(localStorage.getItem(PATH_KEY) || '[]') } catch { return [] }
 }
 
-export default function ExplorerView() {
+interface ExplorerViewProps {
+  isMobile?: boolean
+}
+
+export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
   const allFiles = useFilesStore(s => s.allFiles)
   const { selectedFiles, toggleFile, registerFileMeta } = useSelectionStore()
   const webdavFolderRaw = useConfigStore(s => s.config.webdav_folder)
@@ -51,6 +56,8 @@ export default function ExplorerView() {
   const webdavUrl = useConfigStore(s => s.config.webdav_url)
   const webdavConfigured = !!webdavUrl || !!webdavFolderRaw
   const settings = useUISettingsStore(s => s.settings)
+  const playTrack = usePlayerStore(s => s.playTrack)
+  const currentTrackPath = usePlayerStore(s => s.currentTrack?.path)
 
   const [path, setPath] = useState<string[]>(loadSavedPath)
   const [history, setHistory] = useState<string[][]>(() => [loadSavedPath()])
@@ -297,10 +304,12 @@ export default function ExplorerView() {
   const allScopeSelected = scopeFiles.length > 0 && isCurrentCloudComplete && scopeFiles.every(f => selectedFiles.has(f.path))
   const someScopeSelected = scopeFiles.some(f => selectedFiles.has(f.path))
 
+  const rowHeight = isMobile ? 48 : 36
+
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 36,
+    estimateSize: () => rowHeight,
     overscan: 10,
   })
 
@@ -420,29 +429,52 @@ export default function ExplorerView() {
     <div className="flex flex-col h-full relative">
       {/* Breadcrumb + Suche */}
       <div className="flex items-center gap-2 px-4 py-2 z-10 relative shrink-0 bg-gray-50">
-        <div className="flex-1 min-w-0 flex items-center overflow-hidden border border-gray-200 rounded-full bg-white px-2 h-9">
-          <button onClick={goBack} disabled={histIdx === 0 || path.length === 0} className="p-1.5 rounded-full hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
-            <ArrowLeft size={17}/>
-          </button>
-          <button onClick={goForward} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-full hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
-            <ArrowRight size={17}/>
-          </button>
-          <button onClick={() => pushPath([])} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
-            <Home size={17}/>
-          </button>
-          {path.map((seg, i) => (
-            <span key={i} className="flex items-center gap-0.5 shrink-0">
-              <ChevronRight size={14} className="text-gray-300"/>
-              <button
-                onClick={() => pushPath(path.slice(0, i + 1))}
-                className={`px-1.5 py-0.5 rounded-full text-sm font-semibold transition-colors
-                  ${i === path.length - 1 ? 'text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}
-              >
-                {(seg === cloudFolder && isCloud) ? '☁ ' + seg : seg}
-              </button>
+        {isMobile ? (
+          /* Mobile: Zurück-Pfeil + aktueller Ordnername */
+          <div className="flex-1 min-w-0 flex items-center gap-2 border border-gray-200 rounded-full bg-white px-2 h-10">
+            <button
+              onClick={() => pushPath([])}
+              className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0"
+            >
+              <Home size={19}/>
+            </button>
+            <button
+              onClick={() => path.length > 0 ? pushPath(path.slice(0, -1)) : undefined}
+              disabled={path.length === 0}
+              className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0"
+            >
+              <ArrowLeft size={19}/>
+            </button>
+            <span className="flex-1 text-sm font-semibold text-gray-900 truncate">
+              {path.length === 0 ? '' : (isCloud && path[path.length - 1] === cloudFolder ? '☁ ' : '') + path[path.length - 1]}
             </span>
-          ))}
-        </div>
+          </div>
+        ) : (
+          /* Desktop: volle Breadcrumb */
+          <div className="flex-1 min-w-0 flex items-center overflow-hidden border border-gray-200 rounded-full bg-white px-2 h-9">
+            <button onClick={goBack} disabled={histIdx === 0 || path.length === 0} className="p-1.5 rounded-full hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
+              <ArrowLeft size={17}/>
+            </button>
+            <button onClick={goForward} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-full hover:bg-gray-100 disabled:opacity-30 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
+              <ArrowRight size={17}/>
+            </button>
+            <button onClick={() => pushPath([])} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-[var(--accent)] transition-colors shrink-0">
+              <Home size={17}/>
+            </button>
+            {path.map((seg, i) => (
+              <span key={i} className="flex items-center gap-0.5 shrink-0">
+                <ChevronRight size={14} className="text-gray-300"/>
+                <button
+                  onClick={() => pushPath(path.slice(0, i + 1))}
+                  className={`px-1.5 py-0.5 rounded-full text-sm font-semibold transition-colors
+                    ${i === path.length - 1 ? 'text-gray-900' : 'text-gray-400 hover:text-gray-900'}`}
+                >
+                  {(seg === cloudFolder && isCloud) ? '☁ ' + seg : seg}
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {/* Suchfeld mit ✕, History-Dropdown und globalen Ergebnissen */}
         <div className="relative">
           <div className="relative">
@@ -457,8 +489,8 @@ export default function ExplorerView() {
                 if (e.key === 'Escape') { setSearch(''); searchRef.current?.blur() }
 
               }}
-              placeholder="Suchen… (Strg+F)"
-              className="border border-gray-200 rounded-full pl-7 pr-7 text-sm w-52 h-9 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
+              placeholder={isMobile ? 'Suchen…' : 'Suchen… (Strg+F)'}
+              className={`border border-gray-200 rounded-full pl-7 pr-7 text-sm h-9 focus:outline-none focus:ring-2 focus:border-transparent bg-white ${isMobile ? 'w-32' : 'w-52'}`}
               style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
             />
             {search && (
@@ -504,8 +536,8 @@ export default function ExplorerView() {
         </div>
       </div>
 
-      {/* Tabellen-Header */}
-      <div className="flex items-center border-b border-gray-100 bg-white shrink-0 text-sm font-semibold text-gray-500 tracking-wide select-none">
+      {/* Tabellen-Header — auf Mobile ausgeblendet */}
+      <div className={`flex items-center border-b border-gray-100 bg-white shrink-0 text-sm font-semibold text-gray-500 tracking-wide select-none ${isMobile ? 'hidden' : ''}`}>
         <label className="w-8 flex items-center justify-center cursor-pointer">
           <input type="checkbox" checked={allScopeSelected} onChange={() => {
             if (allScopeSelected || (isCloudRoot && someScopeSelected)) {
@@ -637,7 +669,7 @@ export default function ExplorerView() {
                   className="flex items-center border-b border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer select-none"
                   onClick={() => pushPath([...path, row.name])}
                 >
-                  <label className="w-8 h-full flex items-center justify-center cursor-pointer" onClick={e => e.stopPropagation()}>
+                  <label className={`${isMobile ? 'hidden' : 'w-8'} h-full flex items-center justify-center cursor-pointer`} onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={allSel} onChange={() => {
                       if (allSel) {
                         // ✓ → alles deselektieren
@@ -652,24 +684,28 @@ export default function ExplorerView() {
                       }
                     }} className="sr-only"/>
                     {isLoading
-                      ? <span className="w-[15px] h-[15px] rounded-sm border border-gray-200 bg-gray-100 animate-pulse shrink-0" />
-                      : <span className={`w-[15px] h-[15px] rounded-sm border flex items-center justify-center shrink-0 ${allSel ? 'bg-[var(--accent)] border-[var(--accent)]' : someSel ? 'bg-white border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
-                          {allSel && <Check size={10} className="text-white" strokeWidth={3}/>}
-                          {someSel && !allSel && <Minus size={10} style={{ color: 'var(--accent)' }} strokeWidth={3}/>}
+                      ? <span className={`${isMobile ? 'w-5 h-5 rounded' : 'w-[15px] h-[15px] rounded-sm'} border border-gray-200 bg-gray-100 animate-pulse shrink-0`} />
+                      : <span className={`${isMobile ? 'w-5 h-5 rounded' : 'w-[15px] h-[15px] rounded-sm'} border flex items-center justify-center shrink-0 ${allSel ? 'bg-[var(--accent)] border-[var(--accent)]' : someSel ? 'bg-white border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
+                          {allSel && <Check size={isMobile ? 13 : 10} className="text-white" strokeWidth={3}/>}
+                          {someSel && !allSel && <Minus size={isMobile ? 13 : 10} style={{ color: 'var(--accent)' }} strokeWidth={3}/>}
                         </span>
                     }
                   </label>
-                  <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm flex items-center gap-2`}>
+                  <div className="flex-1 px-2 text-sm flex items-center gap-2 min-w-0">
                     {(isCloud || (row.name === cloudFolder && webdavConfigured))
-                      ? <Cloud size={15} className="shrink-0 text-blue-400"/>
-                      : <Folder size={15} className="shrink-0 text-yellow-400"/>}
+                      ? <Cloud size={isMobile ? 18 : 15} className="shrink-0 text-blue-400"/>
+                      : <Folder size={isMobile ? 18 : 15} className="shrink-0 text-yellow-400"/>}
                     <span className="text-gray-900 truncate"><Highlight text={row.name} query={search} /></span>
                   </div>
-                  <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-600 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
-                  <div style={{ width: colW('size', 80) }} className={`px-2 text-sm shrink-0 ${folderFiles.length > 0 ? 'text-gray-600' : 'text-gray-300'}`}>
-                    {folderFiles.length > 0 ? fmtBytes(folderFiles.reduce((s, f) => s + f.size, 0)) : '–'}
-                  </div>
-                  <div className="flex-1" />
+                  {!isMobile && (
+                    <>
+                      <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-600 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
+                      <div style={{ width: colW('size', 80) }} className={`px-2 text-sm shrink-0 ${folderFiles.length > 0 ? 'text-gray-600' : 'text-gray-300'}`}>
+                        {folderFiles.length > 0 ? fmtBytes(folderFiles.reduce((s, f) => s + f.size, 0)) : '–'}
+                      </div>
+                      <div className="flex-1" />
+                    </>
+                  )}
                 </div>
               )
             }
@@ -677,10 +713,23 @@ export default function ExplorerView() {
             const { file } = row
             const sel = selectedFiles.has(file.path)
             const isHighlighted = file.path === highlightedPath
+            const isPlaying = isMobile && file.path === currentTrackPath
             const ft = getFileType(file.path.split('/').pop() || file.title || '')
             const FileIcon = ft === 'image' ? Image : ft === 'pdf' ? FileText : ft === 'audio' ? Music : ft === 'text' ? AlignLeft : File
             const fileIconColor = ft === 'audio' ? 'text-purple-400' : ft === 'image' ? 'text-green-500' : ft === 'pdf' ? 'text-red-500' : ft === 'text' ? 'text-sky-400' : 'text-gray-400'
             const isViewable = ft !== 'other'
+
+            function handleFileClick() {
+              if (!isViewable) return
+              if (isMobile && ft === 'audio') {
+                const folderAudioTracks = rows
+                  .filter(r => r.type === 'file' && getFileType(r.file.path.split('/').pop() || r.file.title || '') === 'audio')
+                  .map(r => ({ path: (r as { type: 'file'; file: AudioFile }).file.path, name: (r as { type: 'file'; file: AudioFile }).file.title || (r as { type: 'file'; file: AudioFile }).file.path.split('/').pop() || '' }))
+                playTrack({ path: file.path, name: file.title || file.path.split('/').pop() || '' }, folderAudioTracks)
+              } else {
+                setViewerFile({ path: file.path, name: file.title || file.path.split('/').pop() || '', type: ft as 'audio' | 'image' | 'pdf' | 'text' })
+              }
+            }
 
             return (
               <div
@@ -688,15 +737,16 @@ export default function ExplorerView() {
                 style={{
                   position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px',
                   background: isHighlighted ? 'var(--accent-l)' : sel ? 'var(--accent-xl)' : undefined,
+                  borderLeft: isPlaying ? '3px solid var(--accent)' : undefined,
                   transition: isHighlighted ? 'background 2.5s ease-out' : undefined,
                 }}
                 className={`flex items-center border-b border-gray-100 hover:bg-gray-100 transition-colors select-none ${isViewable ? 'cursor-pointer' : ''}`}
-                onClick={isViewable ? () => setViewerFile({ path: file.path, name: file.title || file.path.split('/').pop() || '', type: ft as 'audio' | 'image' | 'pdf' | 'text' }) : undefined}
+                onClick={isViewable ? handleFileClick : undefined}
                 onKeyDown={e => {
                   if (e.key === 'F2') { startRename(file.path.split('/').pop() ?? '') }
                 }}
               >
-                <label className="w-8 h-full flex items-center justify-center cursor-pointer" onClick={e => e.stopPropagation()}>
+                <label className={`${isMobile ? 'hidden' : 'w-8'} h-full flex items-center justify-center cursor-pointer`} onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={sel} onChange={() => {
                     toggleFile(file.path, file)
                     // Cloud: Geschwisterdateien in selectedFilesMeta registrieren (ohne selektieren),
@@ -705,12 +755,12 @@ export default function ExplorerView() {
                       scopeFiles.forEach(f => { if (f.folder === file.folder) registerFileMeta(f) })
                     }
                   }} className="sr-only"/>
-                  <span className={`w-[15px] h-[15px] rounded-sm border flex items-center justify-center shrink-0 ${sel ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
-                    {sel && <Check size={10} className="text-white" strokeWidth={3}/>}
+                  <span className={`${isMobile ? 'w-5 h-5 rounded' : 'w-[15px] h-[15px] rounded-sm'} border flex items-center justify-center shrink-0 ${sel ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
+                    {sel && <Check size={isMobile ? 13 : 10} className="text-white" strokeWidth={3}/>}
                   </span>
                 </label>
-                <div style={(colWidths['name'] ?? nameColWidth) ? { width: colWidths['name'] ?? nameColWidth } : undefined} className={`${(colWidths['name'] ?? nameColWidth) ? 'shrink-0' : 'flex-1'} px-2 text-sm truncate flex items-center gap-2`}>
-                  <FileIcon size={15} className={`shrink-0 ${fileIconColor}`}/>
+                <div className="flex-1 px-2 text-sm truncate flex items-center gap-2 min-w-0">
+                  <FileIcon size={isMobile ? 18 : 15} className={`shrink-0 ${isPlaying ? '' : fileIconColor}`} style={isPlaying ? { color: 'var(--accent)' } : undefined}/>
                   {renaming === file.path.split('/').pop() ? (
                     <input
                       autoFocus
@@ -727,13 +777,17 @@ export default function ExplorerView() {
                     <span className="truncate"><Highlight text={file.title || file.path.split('/').pop() || ''} query={search} /></span>
                   )}
                 </div>
-                <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-600 shrink-0">
-                  {formatDate(file.date)}
-                </div>
-                <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-gray-600 shrink-0">
-                  {fmtBytes(file.size)}
-                </div>
-                <div className="flex-1" />
+                {!isMobile && (
+                  <>
+                    <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-600 shrink-0">
+                      {formatDate(file.date)}
+                    </div>
+                    <div style={{ width: colW('size', 80) }} className="px-2 text-sm text-gray-600 shrink-0">
+                      {fmtBytes(file.size)}
+                    </div>
+                    <div className="flex-1" />
+                  </>
+                )}
               </div>
             )
           })}

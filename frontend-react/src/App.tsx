@@ -4,6 +4,7 @@ import { useFilesStore } from '@/stores/filesStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useSSE } from '@/hooks/useSSE'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { COLOR_PRESETS } from '@/types'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -11,6 +12,7 @@ import CalendarView from '@/components/calendar/CalendarView'
 import ExplorerView from '@/components/explorer/ExplorerView'
 import { invalidateExplorerCache } from '@/components/explorer/explorerCache'
 import SettingsView from '@/components/settings/SettingsView'
+import MobileLayout from '@/components/mobile/MobileLayout'
 
 const ACTIVE_TAB_KEY = 'fs_activeTab'
 
@@ -19,6 +21,7 @@ function ErrorFallback({ error }: { error: unknown }) {
 }
 
 export default function App() {
+  const isMobile = useMediaQuery('(max-width: 768px)')
   const [activeTab, setActiveTab] = useState<'calendar' | 'explorer'>(
     () => (localStorage.getItem(ACTIVE_TAB_KEY) as 'calendar' | 'explorer') || 'calendar'
   )
@@ -75,6 +78,10 @@ export default function App() {
     if (tab === 'explorer') localStorage.removeItem('fs_path')
     setActiveTab(tab)
     localStorage.setItem(ACTIVE_TAB_KEY, tab)
+  }
+
+  if (isMobile) {
+    return <MobileLayout sseMsg={sseMsg} />
   }
 
   return (
