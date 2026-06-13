@@ -45,6 +45,9 @@ func Init(path string) error {
 		return err
 	}
 	_, _ = instance.Exec(`CREATE INDEX IF NOT EXISTS idx_date ON files(date)`)
+	if err := initUserTables(); err != nil {
+		return err
+	}
 
 	dbVersion.Store(time.Now().Unix())
 	invalidateETag()

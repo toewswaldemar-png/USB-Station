@@ -14,6 +14,8 @@ import ExplorerView from '@/components/explorer/ExplorerView'
 import { invalidateExplorerCache } from '@/components/explorer/explorerCache'
 import SettingsView from '@/components/settings/SettingsView'
 import MobileLayout from '@/components/mobile/MobileLayout'
+import LoginView from '@/components/auth/LoginView'
+import SetupView from '@/components/auth/SetupView'
 
 const ACTIVE_TAB_KEY = 'fs_activeTab'
 
@@ -22,7 +24,7 @@ function ErrorFallback({ error }: { error: unknown }) {
 }
 
 export default function App() {
-  const isMobile = useMediaQuery('(max-width: 768px) and (orientation: portrait)')
+  const isMobile = useMediaQuery('(max-width: 768px), (orientation: landscape) and (max-height: 500px)')
   const [activeTab, setActiveTab] = useState<'calendar' | 'explorer'>(
     () => (localStorage.getItem(ACTIVE_TAB_KEY) as 'calendar' | 'explorer') || 'calendar'
   )
@@ -34,8 +36,7 @@ export default function App() {
   const refreshFiles = useFilesStore(s => s.refreshFiles)
   const loadConfig = useConfigStore(s => s.load)
   const loadUI = useUISettingsStore(s => s.load)
-  const loadUser = useUserStore(s => s.load)
-  const role = useUserStore(s => s.role)
+  const { role, isAuthenticated, needsSetup, authChecked, checkAuth } = useUserStore()
   const settings = useUISettingsStore(s => s.settings)
   const uiLoaded = useUISettingsStore(s => s.loaded)
 
@@ -58,12 +59,16 @@ export default function App() {
     }
   })
 
+  // Auth zuerst prüfen
+  useEffect(() => { checkAuth() }, [checkAuth])
+
+  // Daten laden sobald authentifiziert
   useEffect(() => {
+    if (!isAuthenticated) return
     loadConfig()
     loadUI()
     loadFiles()
-    loadUser()
-  }, [loadConfig, loadUI, loadFiles, loadUser])
+  }, [isAuthenticated, loadConfig, loadUI, loadFiles])
 
   // Einstellungen → CSS-Variablen (erst nach API-Antwort, damit index.html-Cache nicht überschrieben wird)
   useEffect(() => {
@@ -84,8 +89,19 @@ export default function App() {
     localStorage.setItem(ACTIVE_TAB_KEY, tab)
   }
 
+  // Auth-Gate
+  if (!authChecked) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: 'var(--accent) transparent transparent transparent' }} />
+      </div>
+    )
+  }
+  if (needsSetup) return <SetupView onComplete={checkAuth} />
+  if (!isAuthenticated) return <LoginView onLogin={checkAuth} />
+
   if (isMobile) {
-    return <MobileLayout sseMsg={sseMsg} role={role} />
+    return <MobileLayout sseMsg={sseMsg} role={role === 'admin' ? 'admin' : 'user'} />
   }
 
   return (
@@ -94,7 +110,7 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={switchTab}
         onOpenSettings={() => setSettingsOpen(true)}
-        role={role}
+        role={role === 'admin' ? 'admin' : 'user'}
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar sseMsg={sseMsg} />

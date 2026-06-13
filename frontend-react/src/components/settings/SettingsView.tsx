@@ -3,7 +3,9 @@ import { X, Maximize, Minimize, RotateCcw, Power, AlertTriangle } from 'lucide-r
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useFilesStore } from '@/stores/filesStore'
+import { useUserStore } from '@/stores/userStore'
 import { COLOR_PRESETS } from '@/types'
+import UserManagement from '@/components/settings/UserManagement'
 
 const FONTS = [
   'Segoe UI, system-ui, sans-serif',
@@ -85,6 +87,7 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const { settings, update } = useUISettingsStore()
   const { config, save: saveConfig } = useConfigStore()
   const refreshFiles = useFilesStore(s => s.refreshFiles)
+  const { role, username } = useUserStore()
   const [isFs, setIsFs] = useState(false)
   const [picking, setPicking] = useState(false)
   useEffect(() => {
@@ -369,6 +372,12 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 </p>
               )}
             </Card>
+
+          {role === 'admin' && username && (
+            <Card title="Benutzer">
+              <UserManagement />
+            </Card>
+          )}
 
           <Card title="Client">
             <div className="flex gap-2">

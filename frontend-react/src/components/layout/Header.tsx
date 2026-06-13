@@ -1,17 +1,19 @@
-import { Calendar, FolderOpen, Settings } from 'lucide-react'
+import { Calendar, FolderOpen, Settings, LogOut } from 'lucide-react'
 import { useClock } from '@/hooks/useClock'
 import { useConfigStore } from '@/stores/configStore'
+import { useUserStore } from '@/stores/userStore'
 
 interface Props {
   activeTab: 'calendar' | 'explorer'
   onTabChange: (tab: 'calendar' | 'explorer') => void
   onOpenSettings: () => void
-  role?: 'admin' | 'cloud'
+  role?: 'admin' | 'user'
 }
 
 export default function Header({ activeTab, onTabChange, onOpenSettings, role = 'admin' }: Props) {
   const { time, date } = useClock()
   const appName = useConfigStore(s => s.config.app_name)
+  const { username, logout } = useUserStore()
 
   return (
     <header
@@ -53,13 +55,22 @@ export default function Header({ activeTab, onTabChange, onOpenSettings, role = 
           <span className="opacity-40">|</span>
           <span className="opacity-80">{date}</span>
         </div>
-        {role !== 'cloud' && !new URLSearchParams(window.location.search).has('kiosk') && (
+        {role === 'admin' && !new URLSearchParams(window.location.search).has('kiosk') && (
           <button
             onClick={onOpenSettings}
             className="p-1.5 rounded hover:bg-white/20 transition-colors"
             title="Einstellungen"
           >
             <Settings size={18} />
+          </button>
+        )}
+        {username && (
+          <button
+            onClick={logout}
+            className="p-1.5 rounded hover:bg-white/20 transition-colors opacity-70 hover:opacity-100"
+            title={`Abmelden (${username})`}
+          >
+            <LogOut size={18} />
           </button>
         )}
       </div>

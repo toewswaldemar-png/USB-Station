@@ -1,23 +1,25 @@
-import { Square } from 'lucide-react'
+import { useState } from 'react'
+import { LogOut, Settings } from 'lucide-react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useConfigStore } from '@/stores/configStore'
-import { usePlayerStore } from '@/stores/playerStore'
+import { useUserStore } from '@/stores/userStore'
 import ExplorerView from '@/components/explorer/ExplorerView'
 import MobilePlayerBar from '@/components/mobile/MobilePlayerBar'
+import SettingsView from '@/components/settings/SettingsView'
 
 interface Props {
   sseMsg: { data: string }
-  role?: 'admin' | 'cloud'
+  role?: 'admin' | 'user'
 }
 
 function ErrorFallback({ error }: { error: unknown }) {
   return <p className="text-red-600 p-4">Fehler: {String(error)}</p>
 }
 
-export default function MobileLayout({ sseMsg: _sseMsg, role: _role = 'admin' }: Props) {
+export default function MobileLayout({ sseMsg }: Props) {
   const appName = useConfigStore(s => s.config.app_name)
-  const currentTrack = usePlayerStore(s => s.currentTrack)
-  const stop = usePlayerStore(s => s.stop)
+  const { role, username, logout } = useUserStore()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
@@ -27,17 +29,36 @@ export default function MobileLayout({ sseMsg: _sseMsg, role: _role = 'admin' }:
         style={{ background: 'var(--accent)', color: '#fff' }}
       >
         <span className="font-semibold text-sm flex-1">{appName}</span>
-        <button
-          onClick={stop}
-          title={currentTrack?.name ?? ''}
-          className={`p-1.5 rounded-full border border-white/40 bg-white/15 hover:bg-white/25 transition-colors ${!currentTrack ? 'invisible' : ''}`}
-        >
-          <Square size={16} color="white" fill="white" />
-        </button>
+        <div className="flex items-center gap-3">
+          {role === 'admin' && (
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title="Einstellungen"
+              className="p-1.5 rounded-full border border-white/40 bg-white/15 hover:bg-white/25 transition-colors"
+            >
+              <Settings size={16} color="white" />
+            </button>
+          )}
+          {username && (
+            <button
+              onClick={logout}
+              title={`Abmelden (${username})`}
+              className="p-1.5 rounded-full border border-white/40 bg-white/15 hover:bg-white/25 transition-colors"
+            >
+              <LogOut size={16} color="white" />
+            </button>
+          )}
+        </div>
       </header>
 
+      {settingsOpen && (
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <SettingsView onClose={() => setSettingsOpen(false)} sseMsg={sseMsg} />
+        </ErrorBoundary>
+      )}
+
       {/* Explorer — füllt verbleibenden Platz */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden min-h-0">
         <ErrorBoundary FallbackComponent={ErrorFallback}>
           <ExplorerView isMobile />
         </ErrorBoundary>

@@ -25,8 +25,9 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: true,
     proxy: {
-      '/api': 'http://localhost:58427',
+      '/api': 'http://localhost:8080',
     },
   },
 })

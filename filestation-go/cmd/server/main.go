@@ -101,12 +101,26 @@ func main() {
 
 	api.StartUSBPoller()
 
+	// Abgelaufene Sessions stündlich bereinigen
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				_ = db.DeleteExpiredSessions()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	port := cfg.Port
 	if port == 0 {
 		port = 58427
 	}
 	addr := fmt.Sprintf(":%d", port)
-	srv := &http.Server{Addr: addr, Handler: mux}
+	srv := &http.Server{Addr: addr, Handler: api.WithAuth(mux)}
 
 	go func() {
 		<-ctx.Done()

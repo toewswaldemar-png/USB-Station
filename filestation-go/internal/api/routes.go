@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	userauth "filestation/internal/auth"
 	"filestation/internal/config"
 	"filestation/internal/db"
 	dirfs "filestation/internal/fs"
@@ -68,6 +69,16 @@ func Register(mux *http.ServeMux, h *sse.Hub) {
 	mux.HandleFunc("GET /api/list-recursive", ListRecursive)
 	mux.HandleFunc("GET /api/capabilities", Capabilities)
 	mux.HandleFunc("GET /api/me", Me)
+
+	// Benutzerverwaltung
+	mux.HandleFunc("GET /api/setup", GetSetup)
+	mux.HandleFunc("POST /api/setup", PostSetup)
+	mux.HandleFunc("POST /api/login", LoginHandler)
+	mux.HandleFunc("POST /api/logout", LogoutHandler)
+	mux.HandleFunc("GET /api/users", GetUsers)
+	mux.HandleFunc("POST /api/users", PostUser)
+	mux.HandleFunc("PUT /api/users/{id}", PutUser)
+	mux.HandleFunc("DELETE /api/users/{id}", DeleteUser)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -770,11 +781,210 @@ func Capabilities(w http.ResponseWriter, r *http.Request) {
 // ── /api/me ───────────────────────────────────────────────────────────────────
 
 func Me(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-Role")
-	if role != "cloud" {
-		role = "admin"
+	// Session-basierter Benutzer
+	if u := currentUser(r); u != nil {
+		writeJSON(w, map[string]string{"role": u.Role, "username": u.Username})
+		return
 	}
-	writeJSON(w, map[string]string{"role": role})
+	writeJSON(w, map[string]string{"role": "admin"})
+}
+
+// ── /api/setup ────────────────────────────────────────────────────────────────
+
+func GetSetup(w http.ResponseWriter, r *http.Request) {
+	n, _ := db.CountUsers()
+	writeJSON(w, map[string]bool{"needed": n == 0})
+}
+
+func PostSetup(w http.ResponseWriter, r *http.Request) {
+	n, _ := db.CountUsers()
+	if n > 0 {
+		http.Error(w, "bereits eingerichtet", http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := readBody(r, &req); err != nil || req.Username == "" || len(req.Password) < 8 {
+		http.Error(w, "Benutzername und Passwort (min. 8 Zeichen) erforderlich", http.StatusBadRequest)
+		return
+	}
+	hash, err := userauth.HashPassword(req.Password)
+	if err != nil {
+		http.Error(w, "interner Fehler", http.StatusInternalServerError)
+		return
+	}
+	u, err := db.CreateUser(req.Username, hash, "admin")
+	if err != nil {
+		http.Error(w, "Benutzer konnte nicht erstellt werden", http.StatusInternalServerError)
+		return
+	}
+	token, err := userauth.NewSession(u.ID)
+	if err != nil {
+		http.Error(w, "Session-Fehler", http.StatusInternalServerError)
+		return
+	}
+	setSessionCookie(w, token)
+	writeJSON(w, map[string]string{"role": u.Role, "username": u.Username})
+}
+
+// ── /api/login ────────────────────────────────────────────────────────────────
+
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := readBody(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	u, token, err := userauth.Login(req.Username, req.Password)
+	if err != nil {
+		http.Error(w, "Ungültige Zugangsdaten", http.StatusUnauthorized)
+		return
+	}
+	setSessionCookie(w, token)
+	writeJSON(w, map[string]string{"role": u.Role, "username": u.Username})
+}
+
+// ── /api/logout ───────────────────────────────────────────────────────────────
+
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("fs_session")
+	if err == nil {
+		_ = db.DeleteSession(cookie.Value)
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name: "fs_session", Value: "", Path: "/",
+		MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	})
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ── /api/users ────────────────────────────────────────────────────────────────
+
+func isAdmin(r *http.Request) bool {
+	if u := currentUser(r); u != nil {
+		return u.Role == "admin"
+	}
+	return r.Header.Get("X-Role") == "admin" || r.Header.Get("X-Role") == ""
+}
+
+func GetUsers(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	users, err := db.ListUsers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, users)
+}
+
+func PostUser(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	if err := readBody(r, &req); err != nil || req.Username == "" || len(req.Password) < 8 {
+		http.Error(w, "Benutzername und Passwort (min. 8 Zeichen) erforderlich", http.StatusBadRequest)
+		return
+	}
+	if req.Role == "" {
+		req.Role = "user"
+	}
+	hash, err := userauth.HashPassword(req.Password)
+	if err != nil {
+		http.Error(w, "interner Fehler", http.StatusInternalServerError)
+		return
+	}
+	u, err := db.CreateUser(req.Username, hash, req.Role)
+	if err != nil {
+		http.Error(w, "Benutzername bereits vergeben", http.StatusConflict)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, u)
+}
+
+func PutUser(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "ungültige ID", http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	if err := readBody(r, &req); err != nil || req.Username == "" {
+		http.Error(w, "Benutzername erforderlich", http.StatusBadRequest)
+		return
+	}
+	var hash string
+	if req.Password != "" {
+		if len(req.Password) < 8 {
+			http.Error(w, "Passwort min. 8 Zeichen", http.StatusBadRequest)
+			return
+		}
+		hash, err = userauth.HashPassword(req.Password)
+		if err != nil {
+			http.Error(w, "interner Fehler", http.StatusInternalServerError)
+			return
+		}
+	}
+	if err := db.UpdateUser(id, req.Username, hash, req.Role); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "ungültige ID", http.StatusBadRequest)
+		return
+	}
+	// Eigenen Account nicht löschbar
+	if u := currentUser(r); u != nil && u.ID == id {
+		http.Error(w, "eigenen Account nicht löschbar", http.StatusBadRequest)
+		return
+	}
+	if err := db.DeleteUser(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func setSessionCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "fs_session",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   30 * 24 * 60 * 60,
+	})
 }
 
 // ── /api/client-command ───────────────────────────────────────────────────────
