@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useFilesStore } from '@/stores/filesStore'
 import { useConfigStore } from '@/stores/configStore'
@@ -31,6 +31,9 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const tabDirRef = useRef<'next' | 'prev'>('next')
   const [sseMsg, setSseMsg] = useState<{ data: string }>({ data: '' })
+  const [calMountKey, setCalMountKey] = useState(0)
+  const expWrapRef = useRef<HTMLDivElement>(null)
+  const explorerEverShown = useRef(activeTab === 'explorer')
 
   const loadFiles = useFilesStore(s => s.loadFiles)
   const refreshFiles = useFilesStore(s => s.refreshFiles)
@@ -85,9 +88,28 @@ export default function App() {
   function switchTab(tab: 'calendar' | 'explorer') {
     tabDirRef.current = tab === 'explorer' ? 'next' : 'prev'
     if (tab === 'explorer') localStorage.removeItem('fs_path')
+    if (tab === 'calendar') setCalMountKey(k => k + 1)
     setActiveTab(tab)
     localStorage.setItem(ACTIVE_TAB_KEY, tab)
   }
+
+  const ALL_ANIM_CLASSES = ['cal-month-next', 'cal-month-prev', 'cal-anim-sanft', 'cal-anim-fade', 'cal-anim-slide', 'cal-anim-flip', 'cal-anim-wipe', 'cal-anim-roll', 'cal-anim-bounce']
+
+  // Imperativ: ExplorerView-Animation beim Tab-Wechsel anwenden
+  useLayoutEffect(() => {
+    if (activeTab !== 'explorer') return
+    const el = expWrapRef.current
+    if (!el) return
+    if (!explorerEverShown.current) { explorerEverShown.current = true; return }
+    const cls = settings.calAnimation === 'slide'
+      ? (tabDirRef.current === 'next' ? 'cal-month-next' : 'cal-month-prev')
+      : `cal-anim-${settings.calAnimation}`
+    const dur = ({ slow: '0.6s', normal: '0.3s', fast: '0.15s' } as Record<string, string>)[settings.calAnimSpeed] ?? '0.3s'
+    el.style.setProperty('--cal-dur', dur)
+    el.classList.remove(...ALL_ANIM_CLASSES)
+    void el.offsetHeight
+    el.classList.add(cls)
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auth-Gate
   if (!authChecked) {
@@ -112,16 +134,29 @@ export default function App() {
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar sseMsg={sseMsg} activeTab={activeTab} onTabChange={switchTab} />
-        <main className="flex-1 overflow-hidden">
-          <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <div
-              key={activeTab}
-              className={`h-full overflow-hidden ${settings.calAnimation === 'slide' ? (tabDirRef.current === 'next' ? 'cal-month-next' : 'cal-month-prev') : `cal-anim-${settings.calAnimation}`}`}
-              style={{ '--cal-dur': { slow: '0.6s', normal: '0.3s', fast: '0.15s' }[settings.calAnimSpeed] ?? '0.3s' } as React.CSSProperties}
-            >
-              {activeTab === 'calendar' ? <CalendarView /> : <ExplorerView />}
-            </div>
-          </ErrorBoundary>
+        <main className="flex-1 overflow-hidden relative">
+          {/* CalendarView — nur gemountet wenn aktiv, Animation via key */}
+          {activeTab === 'calendar' && (
+            <ErrorBoundary FallbackComponent={ErrorFallback}>
+              <div
+                key={calMountKey}
+                className={`absolute inset-0 overflow-hidden ${calMountKey > 0 ? (settings.calAnimation === 'slide' ? 'cal-month-prev' : `cal-anim-${settings.calAnimation}`) : ''}`}
+                style={{ '--cal-dur': ({ slow: '0.6s', normal: '0.3s', fast: '0.15s' } as Record<string, string>)[settings.calAnimSpeed] ?? '0.3s' } as React.CSSProperties}
+              >
+                <CalendarView />
+              </div>
+            </ErrorBoundary>
+          )}
+          {/* ExplorerView — immer gemountet, per visibility versteckt, kein Remount-Delay */}
+          <div
+            ref={expWrapRef}
+            className="absolute inset-0 overflow-hidden"
+            style={{ visibility: activeTab === 'explorer' ? 'visible' : 'hidden' }}
+          >
+            <ErrorBoundary FallbackComponent={ErrorFallback}>
+              <ExplorerView />
+            </ErrorBoundary>
+          </div>
         </main>
       </div>
       {settingsOpen && (
