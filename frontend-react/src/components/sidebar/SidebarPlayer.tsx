@@ -10,7 +10,7 @@ const MODE_ICONS: Record<PlayMode, React.ReactNode> = {
 }
 
 function fmt(s: number) {
-  if (!isFinite(s)) return '0:00'
+  if (!isFinite(s)) return '--:--'
   const m = Math.floor(s / 60)
   const sec = Math.floor(s % 60)
   return `${m}:${sec.toString().padStart(2, '0')}`
@@ -121,7 +121,7 @@ export default function SidebarPlayer() {
             {MODE_ICONS[playMode]}
           </button>
         </div>
-        <span className="text-[10px] text-gray-400 w-7 text-right">{fmt(duration)}</span>
+        <span className="text-[10px] text-gray-400 w-7 text-right">{duration > 0 ? fmt(duration) : '--:--'}</span>
       </div>
     </div>
   )

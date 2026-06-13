@@ -188,6 +188,9 @@ func Stream(w http.ResponseWriter, r *http.Request, davPath string) {
 	target := buildURL(baseURL, davPath)
 	req, _ := http.NewRequest("GET", target, nil)
 	req.SetBasicAuth(user, pw)
+	if rng := r.Header.Get("Range"); rng != "" {
+		req.Header.Set("Range", rng)
+	}
 
 	tr := &http.Transport{TLSClientConfig: insecureTLS()}
 	client := &http.Client{Transport: tr, Timeout: 30e9}
@@ -198,7 +201,7 @@ func Stream(w http.ResponseWriter, r *http.Request, davPath string) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		http.Error(w, resp.Status, resp.StatusCode)
 		return
 	}
@@ -214,6 +217,13 @@ func Stream(w http.ResponseWriter, r *http.Request, davPath string) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", filename))
+	if cl := resp.Header.Get("Content-Length"); cl != "" {
+		w.Header().Set("Content-Length", cl)
+	}
+	if cr := resp.Header.Get("Content-Range"); cr != "" {
+		w.Header().Set("Content-Range", cr)
+	}
+	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
 
