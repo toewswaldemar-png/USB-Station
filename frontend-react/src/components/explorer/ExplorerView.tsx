@@ -722,7 +722,10 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
                         </span>
                     }
                   </label>
-                  <div className="flex-1 px-2 text-sm flex items-center gap-2 min-w-0">
+                  <div
+                    style={colWidths['name'] ?? nameColWidth ? { width: colWidths['name'] ?? nameColWidth } : undefined}
+                    className={`${colWidths['name'] ?? nameColWidth ? 'shrink-0' : 'flex-1'} px-2 text-sm flex items-center gap-2 min-w-0`}
+                  >
                     {(isCloud || (row.name === cloudFolder && webdavConfigured))
                       ? <Cloud size={isMobile ? 18 : 15} className="shrink-0 text-blue-400"/>
                       : <Folder size={isMobile ? 18 : 15} className="shrink-0 text-yellow-400"/>}
@@ -790,7 +793,10 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
                     {sel && <Check size={isMobile ? 13 : 10} className="text-white" strokeWidth={3}/>}
                   </span>
                 </label>
-                <div className="flex-1 px-2 text-sm truncate flex items-center gap-2 min-w-0">
+                <div
+                  style={colWidths['name'] ?? nameColWidth ? { width: colWidths['name'] ?? nameColWidth } : undefined}
+                  className={`${colWidths['name'] ?? nameColWidth ? 'shrink-0' : 'flex-1'} px-2 text-sm truncate flex items-center gap-2 min-w-0`}
+                >
                   <FileIcon size={isMobile ? 18 : 15} className={`shrink-0 ${isPlaying ? '' : fileIconColor}`} style={isPlaying ? { color: 'var(--accent)' } : undefined}/>
                   {renaming === file.path.split('/').pop() ? (
                     <input
