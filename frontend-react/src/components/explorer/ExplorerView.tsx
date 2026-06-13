@@ -320,6 +320,31 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
     if (idx !== -1) virtualizer.scrollToIndex(idx, { align: 'center' })
   }, [rows, highlightedPath]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Aktuell abgespielte Datei auf Mobil sichtbar halten wenn Track wechselt
+  useEffect(() => {
+    if (!isMobile || !currentTrackPath) return
+    const idx = rows.findIndex(r => r.type === 'file' && r.file.path === currentTrackPath)
+    if (idx === -1) return
+    // rAF wartet auf Layout-Reflow (Playerbar erscheint → main schrumpft)
+    const raf = requestAnimationFrame(() => {
+      const container = parentRef.current
+      if (!container) return
+      const itemTop = idx * rowHeight
+      const itemBottom = itemTop + rowHeight
+      const { scrollTop, clientHeight } = container
+      // Bereits vollständig sichtbar → kein Scroll
+      if (itemTop >= scrollTop && itemBottom <= scrollTop + clientHeight) return
+      // Unterhalb des sichtbaren Bereichs → ans Ende scrollen (knapp über Playerbar)
+      if (itemBottom > scrollTop + clientHeight) {
+        virtualizer.scrollToIndex(idx, { align: 'end' })
+      } else {
+        // Oberhalb → nach oben scrollen
+        virtualizer.scrollToIndex(idx, { align: 'start' })
+      }
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [currentTrackPath]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Highlight nach 2,5 s automatisch entfernen
   useEffect(() => {
     if (!highlightedPath) return
@@ -536,9 +561,9 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
         </div>
       </div>
 
-      {/* Tabellen-Header — auf Mobile ausgeblendet */}
-      <div className={`flex items-center border-b border-gray-100 bg-white shrink-0 text-sm font-semibold text-gray-500 tracking-wide select-none ${isMobile ? 'hidden' : ''}`}>
-        <label className="w-8 flex items-center justify-center cursor-pointer">
+      {/* Tabellen-Header */}
+      <div className="flex items-center border-b border-gray-100 bg-white shrink-0 text-sm font-semibold text-gray-500 tracking-wide select-none">
+        <label className={`${isMobile ? 'hidden' : 'w-8'} flex items-center justify-center cursor-pointer`}>
           <input type="checkbox" checked={allScopeSelected} onChange={() => {
             if (allScopeSelected || (isCloudRoot && someScopeSelected)) {
               // ✓ oder – am Cloud-Root → alles deselektieren (kein Fetch am Root)
@@ -563,44 +588,50 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
           <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-gray-800 transition-colors">
             Name {sort.by === 'name' ? (sort.dir === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>) : null}
           </button>
-          <div
-            className="flex items-center justify-center w-5 h-full cursor-col-resize"
-            onMouseDown={e => {
-              e.preventDefault()
-              let lastX = e.clientX
-              const onMove = (ev: MouseEvent) => { handleColResize('name', ev.clientX - lastX); lastX = ev.clientX }
-              const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-              document.addEventListener('mousemove', onMove)
-              document.addEventListener('mouseup', onUp)
-            }}
-          >
-            <div className="w-px h-4 bg-gray-300" />
-          </div>
+          {!isMobile && (
+            <div
+              className="flex items-center justify-center w-5 h-full cursor-col-resize"
+              onMouseDown={e => {
+                e.preventDefault()
+                let lastX = e.clientX
+                const onMove = (ev: MouseEvent) => { handleColResize('name', ev.clientX - lastX); lastX = ev.clientX }
+                const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+                document.addEventListener('mousemove', onMove)
+                document.addEventListener('mouseup', onUp)
+              }}
+            >
+              <div className="w-px h-4 bg-gray-300" />
+            </div>
+          )}
         </div>
-        <div
-          style={{ width: colW('date', 155) }}
-          className="px-2 py-2 shrink-0 flex items-center justify-between"
-        >
-          <button onClick={() => toggleSort('date')} className="flex items-center gap-1 hover:text-gray-800 transition-colors">
-            Änderungsdatum {sort.by === 'date' ? (sort.dir === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>) : null}
-          </button>
-          <div
-            className="flex items-center justify-center w-5 h-full cursor-col-resize"
-            onMouseDown={e => {
-              e.preventDefault()
-              let lastX = e.clientX
-              const onMove = (ev: MouseEvent) => { handleColResize('date', ev.clientX - lastX); lastX = ev.clientX }
-              const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-              document.addEventListener('mousemove', onMove)
-              document.addEventListener('mouseup', onUp)
-            }}
-          >
-            <div className="w-px h-4 bg-gray-300" />
-          </div>
-        </div>
-        <button style={{ width: colW('size', 80) }} className="px-2 py-2 shrink-0 flex items-center gap-1 hover:text-gray-800 transition-colors" onClick={() => toggleSort('size')}>
-          Größe <span className="inline-flex w-3 justify-center">{sort.by === 'size' ? (sort.dir === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>) : null}</span>
-        </button>
+        {!isMobile && (
+          <>
+            <div
+              style={{ width: colW('date', 155) }}
+              className="px-2 py-2 shrink-0 flex items-center justify-between"
+            >
+              <button onClick={() => toggleSort('date')} className="flex items-center gap-1 hover:text-gray-800 transition-colors">
+                Änderungsdatum {sort.by === 'date' ? (sort.dir === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>) : null}
+              </button>
+              <div
+                className="flex items-center justify-center w-5 h-full cursor-col-resize"
+                onMouseDown={e => {
+                  e.preventDefault()
+                  let lastX = e.clientX
+                  const onMove = (ev: MouseEvent) => { handleColResize('date', ev.clientX - lastX); lastX = ev.clientX }
+                  const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+                  document.addEventListener('mousemove', onMove)
+                  document.addEventListener('mouseup', onUp)
+                }}
+              >
+                <div className="w-px h-4 bg-gray-300" />
+              </div>
+            </div>
+            <button style={{ width: colW('size', 80) }} className="px-2 py-2 shrink-0 flex items-center gap-1 hover:text-gray-800 transition-colors" onClick={() => toggleSort('size')}>
+              Größe <span className="inline-flex w-3 justify-center">{sort.by === 'size' ? (sort.dir === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>) : null}</span>
+            </button>
+          </>
+        )}
         <div className="flex-1" />
       </div>
 
@@ -608,7 +639,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
       <div
         ref={parentRef}
         className="flex-1 overflow-y-auto overflow-x-hidden bg-white"
-        style={{ touchAction: 'pan-y' }}
+        style={{ touchAction: 'pan-y', overscrollBehavior: 'none' }}
         onPointerDown={e => { swipeStartX.current = e.clientX; swipeStartY.current = e.clientY; swiping.current = true }}
         onPointerUp={e => {
           if (!swiping.current) return
@@ -736,7 +767,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
                 key={vi.key}
                 style={{
                   position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px',
-                  background: isHighlighted ? 'var(--accent-l)' : sel ? 'var(--accent-xl)' : undefined,
+                  background: isPlaying ? 'var(--accent-l)' : isHighlighted ? 'var(--accent-l)' : sel ? 'var(--accent-xl)' : undefined,
                   borderLeft: isPlaying ? '3px solid var(--accent)' : undefined,
                   transition: isHighlighted ? 'background 2.5s ease-out' : undefined,
                 }}
@@ -774,7 +805,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
                       className="border border-[var(--accent)] rounded-md px-1.5 text-sm w-full focus:outline-none"
                     />
                   ) : (
-                    <span className="truncate"><Highlight text={file.title || file.path.split('/').pop() || ''} query={search} /></span>
+                    <span className={`truncate ${isPlaying ? 'font-semibold' : ''}`} style={isPlaying ? { color: 'var(--accent)' } : undefined}><Highlight text={file.title || file.path.split('/').pop() || ''} query={search} /></span>
                   )}
                 </div>
                 {!isMobile && (
