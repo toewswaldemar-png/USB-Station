@@ -311,6 +311,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
     getScrollElement: () => parentRef.current,
     estimateSize: () => rowHeight,
     overscan: 10,
+    initialRect: { width: 0, height: 800 },
   })
 
   // Zu markiertem Eintrag scrollen sobald rows + virtualizer bereit sind
