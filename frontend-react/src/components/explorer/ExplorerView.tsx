@@ -765,7 +765,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
 
             function handleFileClick() {
               if (!isViewable) return
-              if (isMobile && ft === 'audio') {
+              if (ft === 'audio') {
                 const folderAudioTracks = rows
                   .filter(r => r.type === 'file' && getFileType(r.file.path.split('/').pop() || r.file.title || '') === 'audio')
                   .map(r => ({ path: (r as { type: 'file'; file: AudioFile }).file.path, name: (r as { type: 'file'; file: AudioFile }).file.title || (r as { type: 'file'; file: AudioFile }).file.path.split('/').pop() || '' }))
