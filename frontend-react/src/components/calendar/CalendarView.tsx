@@ -145,7 +145,7 @@ export default function CalendarView() {
       className="flex flex-col h-full bg-gray-100"
     >
       {/* Monatsnavigation */}
-      <div className="flex items-center justify-center px-4 py-3 bg-gray-100 shrink-0 gap-2">
+      <div className="flex items-center justify-center px-4 py-2 bg-gray-100 shrink-0 gap-2">
         <button
           onClick={goPrev}
           className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md active:scale-95 transition-all hover:text-[var(--accent)]"
