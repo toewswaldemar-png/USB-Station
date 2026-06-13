@@ -6,6 +6,7 @@ _build/Server/server.log
 
 # Build-Artefakte
 _build/Server/filestation.exe
+_build/Server/resetpw.exe
 _build/Client/fileclient.exe
 _build/filestation-linux-amd64
 

@@ -17,6 +17,8 @@ go build -o ..\_build\Server\filestation.exe ./cmd/server
 if errorlevel 1 ( echo FEHLER: Go-Server-Build fehlgeschlagen. & pause & exit /b 1 )
 go build -o ..\_build\Client\fileclient.exe ./cmd/fileclient
 if errorlevel 1 ( echo FEHLER: Go-Client-Build fehlgeschlagen. & pause & exit /b 1 )
+go build -o ..\_build\Server\resetpw.exe ./cmd/resetpw
+if errorlevel 1 ( echo FEHLER: resetpw-Build fehlgeschlagen. & pause & exit /b 1 )
 cd ..
 
 echo.
