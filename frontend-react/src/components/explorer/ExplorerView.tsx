@@ -322,7 +322,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
 
   // Aktuell abgespielte Datei auf Mobil sichtbar halten wenn Track wechselt
   useEffect(() => {
-    if (!isMobile || !currentTrackPath) return
+    if (!currentTrackPath) return
     const idx = rows.findIndex(r => r.type === 'file' && r.file.path === currentTrackPath)
     if (idx === -1) return
     // rAF wartet auf Layout-Reflow (Playerbar erscheint → main schrumpft)
@@ -757,7 +757,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
             const { file } = row
             const sel = selectedFiles.has(file.path)
             const isHighlighted = file.path === highlightedPath
-            const isPlaying = isMobile && file.path === currentTrackPath
+            const isPlaying = file.path === currentTrackPath
             const ft = getFileType(file.path.split('/').pop() || file.title || '')
             const FileIcon = ft === 'image' ? Image : ft === 'pdf' ? FileText : ft === 'audio' ? Music : ft === 'text' ? AlignLeft : File
             const fileIconColor = ft === 'audio' ? 'text-purple-400' : ft === 'image' ? 'text-green-500' : ft === 'pdf' ? 'text-red-500' : ft === 'text' ? 'text-sky-400' : 'text-gray-400'
