@@ -4,7 +4,10 @@ import { useSelectionStore } from '@/stores/selectionStore'
 import UsbDriveList from '@/components/sidebar/UsbDriveList'
 import SelectionPanel from '@/components/sidebar/SelectionPanel'
 import CopyProgress from '@/components/sidebar/CopyProgress'
+import SidebarPlayer from '@/components/sidebar/SidebarPlayer'
 import { useUsbDrives } from '@/hooks/useUsbDrives'
+
+const isKiosk = new URLSearchParams(window.location.search).has('kiosk')
 
 interface Props {
   sseMsg: { data: string }
@@ -67,6 +70,8 @@ export default function Sidebar({ sseMsg }: Props) {
           </div>
         )}
       </div>
+
+      {!isKiosk && <SidebarPlayer />}
 
     </aside>
   )
