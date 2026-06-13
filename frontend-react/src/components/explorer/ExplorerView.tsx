@@ -442,7 +442,17 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
   function handleColResize(col: string, delta: number) {
     setColWidths(prev => {
       const min = COL_MINS[col] ?? 60
-      const next = { ...prev, [col]: Math.max(min, (prev[col] ?? 120) + delta) }
+      const containerW = parentRef.current?.clientWidth ?? Infinity
+      const nameW  = prev['name'] ?? nameColWidth ?? 120
+      const dateW  = prev['date'] ?? 155
+      const sizeW  = prev['size'] ?? 80
+      const fixed  = 32 + sizeW // checkbox + size
+      const max = col === 'name'
+        ? containerW - fixed - dateW
+        : col === 'date'
+          ? containerW - fixed - nameW
+          : Infinity
+      const next = { ...prev, [col]: Math.max(min, Math.min(max, (prev[col] ?? 120) + delta)) }
       saveColWidths(next)
       return next
     })
