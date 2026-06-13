@@ -40,7 +40,7 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
     <aside className="w-64 shrink-0 flex flex-col bg-gray-50 overflow-hidden shadow-[2px_0_12px_rgba(0,0,0,0.06)] z-10">
 
       {/* Tab-Umschalter */}
-      <div className="flex items-center gap-1 px-3 py-2 shrink-0 border-b border-gray-200 bg-white">
+      <div className="flex items-center justify-center gap-1 px-3 py-2 shrink-0 border-b border-gray-200 bg-white">
         <button
           onClick={() => onTabChange('calendar')}
           className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-semibold transition-colors
