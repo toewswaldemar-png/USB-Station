@@ -107,13 +107,11 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <Header
-        activeTab={activeTab}
-        onTabChange={switchTab}
         onOpenSettings={() => setSettingsOpen(true)}
         role={role === 'admin' ? 'admin' : 'user'}
       />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar sseMsg={sseMsg} />
+        <Sidebar sseMsg={sseMsg} activeTab={activeTab} onTabChange={switchTab} />
         <main className="flex-1 overflow-hidden">
           <ErrorBoundary FallbackComponent={ErrorFallback}>
             <div

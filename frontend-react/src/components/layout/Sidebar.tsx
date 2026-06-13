@@ -1,5 +1,5 @@
 import { useRef, useState, useLayoutEffect } from 'react'
-import { HardDrive, ChevronDown } from 'lucide-react'
+import { HardDrive, ChevronDown, Calendar, FolderOpen } from 'lucide-react'
 import { useSelectionStore } from '@/stores/selectionStore'
 import UsbDriveList from '@/components/sidebar/UsbDriveList'
 import SelectionPanel from '@/components/sidebar/SelectionPanel'
@@ -11,9 +11,11 @@ const isKiosk = new URLSearchParams(window.location.search).has('kiosk')
 
 interface Props {
   sseMsg: { data: string }
+  activeTab: 'calendar' | 'explorer'
+  onTabChange: (tab: 'calendar' | 'explorer') => void
 }
 
-export default function Sidebar({ sseMsg }: Props) {
+export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
   const selectedCount = useSelectionStore(s => s.selectedFiles.size)
   const { drives, selected, setSelected } = useUsbDrives(sseMsg)
   const innerRef = useRef<HTMLDivElement>(null)
@@ -36,6 +38,26 @@ export default function Sidebar({ sseMsg }: Props) {
 
   return (
     <aside className="w-64 shrink-0 flex flex-col bg-gray-50 overflow-hidden shadow-[2px_0_12px_rgba(0,0,0,0.06)] z-10">
+
+      {/* Tab-Umschalter */}
+      <div className="flex items-center gap-1 px-3 py-2 shrink-0 border-b border-gray-200 bg-white">
+        <button
+          onClick={() => onTabChange('calendar')}
+          className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-semibold transition-colors
+            ${activeTab === 'calendar' ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+          style={activeTab === 'calendar' ? { background: 'var(--accent)' } : undefined}
+        >
+          <Calendar size={13} /> Kalender
+        </button>
+        <button
+          onClick={() => onTabChange('explorer')}
+          className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-semibold transition-colors
+            ${activeTab === 'explorer' ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+          style={activeTab === 'explorer' ? { background: 'var(--accent)' } : undefined}
+        >
+          <FolderOpen size={13} /> Explorer
+        </button>
+      </div>
 
       {/* USB-Laufwerk-Karte */}
       <div className="mx-3 mt-3 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden shrink-0">

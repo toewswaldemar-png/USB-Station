@@ -1,16 +1,14 @@
-import { Calendar, FolderOpen, Settings, LogOut } from 'lucide-react'
+import { Settings, LogOut } from 'lucide-react'
 import { useClock } from '@/hooks/useClock'
 import { useConfigStore } from '@/stores/configStore'
 import { useUserStore } from '@/stores/userStore'
 
 interface Props {
-  activeTab: 'calendar' | 'explorer'
-  onTabChange: (tab: 'calendar' | 'explorer') => void
   onOpenSettings: () => void
   role?: 'admin' | 'user'
 }
 
-export default function Header({ activeTab, onTabChange, onOpenSettings, role = 'admin' }: Props) {
+export default function Header({ onOpenSettings, role = 'admin' }: Props) {
   const { time, date } = useClock()
   const appName = useConfigStore(s => s.config.app_name)
   const { username, logout } = useUserStore()
@@ -25,23 +23,8 @@ export default function Header({ activeTab, onTabChange, onOpenSettings, role = 
         gridTemplateColumns: '1fr auto 1fr',
       }}
     >
-      {/* Links: Tabs */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onTabChange('calendar')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold transition-colors
-            ${activeTab === 'calendar' ? 'bg-white/20' : 'opacity-70 hover:opacity-100 hover:bg-white/10'}`}
-        >
-          <Calendar size={15} /> Kalender
-        </button>
-        <button
-          onClick={() => onTabChange('explorer')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold transition-colors
-            ${activeTab === 'explorer' ? 'bg-white/20' : 'opacity-70 hover:opacity-100 hover:bg-white/10'}`}
-        >
-          <FolderOpen size={15} /> Explorer
-        </button>
-      </div>
+      {/* Links: leer (Tabs sind in der Sidebar) */}
+      <div />
 
       {/* Mitte: App-Name */}
       <div className="flex items-center justify-center">
