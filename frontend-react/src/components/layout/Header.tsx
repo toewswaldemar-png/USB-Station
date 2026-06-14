@@ -47,7 +47,7 @@ export default function Header({ onOpenSettings, role = 'admin' }: Props) {
             <Settings size={18} />
           </button>
         )}
-        {username && (
+        {username && !new URLSearchParams(window.location.search).has('kiosk') && (
           <button
             onClick={logout}
             className="p-1.5 rounded hover:bg-white/20 transition-colors opacity-70 hover:opacity-100"
