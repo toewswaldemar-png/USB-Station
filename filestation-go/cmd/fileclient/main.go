@@ -149,13 +149,27 @@ func monitor(w webview.WebView, serverURL string) {
 func listenCommands(w webview.WebView, serverURL string) {
 	hwnd := uintptr(w.Window())
 	client := &http.Client{} // no timeout — SSE is long-lived
+	everConnected := false
+	needsReload := false
 
 	for {
 		resp, err := client.Get(serverURL + "/api/events")
 		if err != nil {
+			if everConnected {
+				needsReload = true
+			}
 			time.Sleep(3 * time.Second)
 			continue
 		}
+
+		// SSE-Verbindung nach Drop wiederhergestellt → Seite neu laden damit
+		// WebView2 die aktuelle index.html (und neue JS-Assets) vom Server holt.
+		if needsReload {
+			url := serverURL + "?kiosk=1"
+			w.Dispatch(func() { w.Navigate(url) })
+			needsReload = false
+		}
+		everConnected = true
 
 		scanner := bufio.NewScanner(resp.Body)
 		for scanner.Scan() {

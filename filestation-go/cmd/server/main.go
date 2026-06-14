@@ -70,6 +70,10 @@ func main() {
 		if _, err := sub.Open(p); err != nil {
 			r.URL.Path = "/"
 		}
+		// index.html nie cachen — WebView2 soll nach Updates immer die neue Version laden
+		if r.URL.Path == "/" || strings.HasSuffix(r.URL.Path, "/index.html") {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 		fileServer.ServeHTTP(w, r)
 	}))
 
