@@ -20,11 +20,11 @@ export default function Header({ onOpenSettings, role = 'admin' }: Props) {
         background: 'var(--accent)',
         color: '#fff',
         fontSize: 'var(--font-size-header)',
-        gridTemplateColumns: '16rem 1fr auto',
+        gridTemplateColumns: '1fr auto 1fr',
       }}
     >
-      {/* Links: App-Name, zentriert über Sidebar */}
-      <div className="flex items-center justify-center">
+      {/* Links: App-Name */}
+      <div className="flex items-center">
         <span className="font-semibold text-lg">{appName}</span>
       </div>
 
