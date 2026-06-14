@@ -23,13 +23,13 @@ export default function Header({ onOpenSettings, role = 'admin' }: Props) {
         gridTemplateColumns: '1fr auto 1fr',
       }}
     >
-      {/* Links: leer (Tabs sind in der Sidebar) */}
-      <div />
-
-      {/* Mitte: App-Name */}
-      <div className="flex items-center justify-center">
+      {/* Links: App-Name */}
+      <div className="flex items-center">
         <span className="font-semibold text-lg">{appName}</span>
       </div>
+
+      {/* Mitte: leer */}
+      <div />
 
       {/* Rechts: Uhr + Settings */}
       <div className="flex items-center justify-end gap-4">
