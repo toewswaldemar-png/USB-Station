@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Check, Minus } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useFilesStore } from '@/stores/filesStore'
 import { groupKey } from '@/lib/groupKey'
@@ -11,14 +11,13 @@ function stripDate(s: string) {
   return s.replace(DATE_RE, '').replace(DATE_RE, '').trim() || s
 }
 
-export default function SelectionPanel() {
+export default function SelectionPanel({ emptyLabel }: { emptyLabel?: string }) {
   const { selectedFiles, selectedFilesMeta, toggleFile } = useSelectionStore()
   const allFiles = useFilesStore(s => s.allFiles)
 
-  // Schnell-Lookup: Pfad → AudioFile für lokale Dateien
   const localByPath = new Map(allFiles.map(f => [f.path, f]))
 
-  // Aktive Gruppen-Keys aus allFiles (lokal) + selectedFilesMeta (Cloud)
+  // Aktive Gruppen-Keys (haben ≥1 ausgewählte Datei)
   const activeKeys = new Set<string>()
   for (const f of allFiles) {
     if (selectedFiles.has(f.path)) activeKeys.add(groupKey(f))
@@ -27,46 +26,44 @@ export default function SelectionPanel() {
     if (selectedFiles.has(path) && !localByPath.has(path)) activeKeys.add(groupKey(file))
   }
 
-  // Gruppen aufbauen: lokale Dateien aus allFiles, Cloud-Dateien aus selectedFilesMeta
-  const grouped = new Map<string, AudioFile[]>()
-  for (const f of allFiles) {
-    const k = groupKey(f)
-    if (!activeKeys.has(k)) continue
-    if (!grouped.has(k)) grouped.set(k, [])
-    grouped.get(k)!.push(f)
-  }
-  for (const [path, file] of selectedFilesMeta) {
-    if (localByPath.has(path)) continue  // bereits via allFiles erfasst
-    const k = groupKey(file)
-    if (!activeKeys.has(k)) continue  // Gruppe nur zeigen wenn ≥1 Datei selektiert
-    if (!grouped.has(k)) grouped.set(k, [])
-    grouped.get(k)!.push(file)
-  }
-
-  for (const [, files] of grouped) files.sort((a, b) => a.date.localeCompare(b.date))
-
-  const keys = [...grouped.keys()]
+  // pinnedKeys als Ref: synchron aktuell, kein Batch-Delay gegenüber Zustand-Updates
+  const pinnedKeys = useRef(new Set<string>())
+  const [visibleKeys, setVisibleKeys] = useState<string[]>([])
   const [openKey, setOpenKey] = useState<string | null>(null)
-  const prevKeysRef = useRef<string[]>([])
 
-  // Nur bei Gruppen-Änderung (neuer Chip / Gruppe weg) → zuklappen
-  // Einzeldatei-Toggle innerhalb einer Gruppe lässt die Gruppe offen
   useEffect(() => {
-    const prev = prevKeysRef.current
-    const keysChanged = keys.length !== prev.length || keys.some(k => !prev.includes(k))
-    if (keysChanged) setOpenKey(null)
-    else if (openKey !== null && !keys.includes(openKey)) setOpenKey(null)
-    prevKeysRef.current = keys
+    setVisibleKeys(prev => {
+      const toAdd = [...activeKeys].filter(k => !prev.includes(k))
+      const toRemove = prev.filter(k => !activeKeys.has(k) && !pinnedKeys.current.has(k))
+      if (toAdd.length === 0 && toRemove.length === 0) return prev
+      return [...prev.filter(k => !toRemove.includes(k)), ...toAdd]
+    })
   })
 
-  if (selectedFiles.size === 0) return null
+  // Akkordeon schließen wenn offene Gruppe via X entfernt wurde
+  useEffect(() => {
+    if (openKey !== null && !visibleKeys.includes(openKey)) setOpenKey(null)
+  }, [visibleKeys, openKey])
+
+  function getFilesForKey(k: string): AudioFile[] {
+    const local = allFiles.filter(f => groupKey(f) === k)
+    const cloud: AudioFile[] = []
+    for (const [path, file] of selectedFilesMeta) {
+      if (!localByPath.has(path) && groupKey(file) === k) cloud.push(file)
+    }
+    return [...local, ...cloud].sort((a, b) => a.date.localeCompare(b.date))
+  }
+
+  if (visibleKeys.length === 0) return emptyLabel
+    ? <p className="px-3 py-3 text-[12px] text-gray-400 text-center">{emptyLabel}</p>
+    : null
 
   return (
     <div className="divide-y divide-gray-50">
-      {keys.map(key => {
-        const files = grouped.get(key)!
+      {visibleKeys.map(key => {
+        const files = getFilesForKey(key)
         const selCount = files.filter(f => selectedFiles.has(f.path)).length
-        const allSel = selCount === files.length
+        const allSel = files.length > 0 && selCount === files.length
         const someSel = selCount > 0 && !allSel
         const isOpen = openKey === key
 
@@ -75,57 +72,57 @@ export default function SelectionPanel() {
 
             {/* Gruppenheader */}
             <div
-              className={`flex items-center gap-2 px-3 py-2.5 select-none transition-colors ${files.length > 1 ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-              onClick={() => files.length > 1 && setOpenKey(isOpen ? null : key)}
+              className="flex items-center gap-2 pr-2 py-2.5 select-none cursor-pointer transition-all"
+              style={{
+                borderLeft: `3px solid ${allSel ? 'var(--accent)' : someSel ? 'var(--accent-l)' : '#e5e7eb'}`,
+                paddingLeft: '9px',
+              }}
+              onClick={() => setOpenKey(isOpen ? null : key)}
             >
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
-              <span className="flex-1 text-sm font-semibold text-gray-900 truncate">
+              <span className={`flex-1 text-sm font-semibold truncate transition-colors ${allSel ? '' : 'text-gray-800'}`}
+                style={allSel ? { color: 'var(--accent)' } : {}}>
                 {stripDate(key)}
               </span>
               <span
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
-                style={{ background: 'var(--accent-l)', color: 'var(--accent)' }}
+                className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 cursor-pointer active:scale-90 transition-all text-white"
+                style={{ background: selCount > 0 ? 'var(--accent)' : '#d1d5db' }}
+                onClick={e => {
+                  e.stopPropagation()
+                  files.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+                }}
               >
                 {selCount}
               </span>
 
-              {/* Checkbox ersetzt X — alle an/ab */}
-              <label className="shrink-0 cursor-pointer" onClick={e => e.stopPropagation()}>
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={allSel}
-                  onChange={() => {
-                    if (allSel) files.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
-                    else files.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
-                  }}
-                />
-                <span className={`w-[17px] h-[17px] rounded-sm border flex items-center justify-center shrink-0
-                  ${allSel ? 'bg-[var(--accent)] border-[var(--accent)]' : someSel ? 'bg-white border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
-                  {allSel && <Check size={11} className="text-white" strokeWidth={3} />}
-                  {someSel && <Minus size={11} style={{ color: 'var(--accent)' }} strokeWidth={3} />}
-                </span>
-              </label>
+              <button
+                className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors"
+                onClick={e => {
+                  e.stopPropagation()
+                  pinnedKeys.current.delete(key)
+                  setVisibleKeys(prev => prev.filter(k => k !== key))
+                  files.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
+                }}
+              >
+                <X size={11} strokeWidth={2.5} />
+              </button>
             </div>
 
             {/* Dateiliste */}
             {isOpen && (
-              <div className="bg-gray-50/60 border-t border-gray-50">
+              <div className="bg-gray-50 border-t border-gray-100">
                 {files.map(f => {
                   const sel = selectedFiles.has(f.path)
                   return (
                     <div
                       key={f.path}
-                      className="flex items-center gap-2 pl-4 pr-3 py-2 hover:bg-gray-100/60 transition-colors cursor-pointer select-none"
+                      className="flex items-center gap-2.5 pr-3 py-2 cursor-pointer select-none transition-colors hover:bg-gray-100/60"
+                      style={{ paddingLeft: '18px' }}
                       onClick={() => toggleFile(f.path, f)}
                     >
-                      <div className="w-1 h-1 rounded-full shrink-0 bg-gray-300" />
-                      <span className={`flex-1 text-sm truncate transition-colors ${sel ? 'text-gray-800' : 'text-gray-500'}`}>
+                      <div className="w-1.5 h-1.5 rounded-full shrink-0 transition-colors"
+                        style={{ background: sel ? 'var(--accent)' : '#d1d5db' }} />
+                      <span className={`flex-1 text-[13px] truncate transition-colors ${sel ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
                         {stripDate(f.title || f.path.split('/').pop() || '')}
-                      </span>
-                      <span className={`w-[17px] h-[17px] rounded-sm border flex items-center justify-center shrink-0
-                        ${sel ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-white border-gray-300'}`}>
-                        {sel && <Check size={11} className="text-white" strokeWidth={3} />}
                       </span>
                     </div>
                   )
