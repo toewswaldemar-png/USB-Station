@@ -14,6 +14,7 @@ export interface UISettings {
   sortBy: 'name' | 'date'
   sortDir: 'asc' | 'desc'
   hiddenCloudFolders: string[]
+  folderSort: Record<string, { by: 'name' | 'date' | 'size'; dir: 'asc' | 'desc' }>
 }
 
 const DEFAULTS: UISettings = {
@@ -28,6 +29,7 @@ const DEFAULTS: UISettings = {
   sortBy: 'date',
   sortDir: 'desc',
   hiddenCloudFolders: [],
+  folderSort: {},
 }
 
 const CACHE_KEY = 'ui_settings_cache'

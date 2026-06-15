@@ -5,6 +5,7 @@ import { useFilesStore } from '@/stores/filesStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useConfigStore } from '@/stores/configStore'
+import { useUserStore } from '@/stores/userStore'
 import { usePlayerStore } from '@/stores/playerStore'
 import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
@@ -37,7 +38,6 @@ function saveColWidths(w: Record<string, number>) {
 
 type SortBy = 'name' | 'date' | 'size'
 type SortDir = 'asc' | 'desc'
-const SORT_KEY = 'fs_sort'
 const PATH_KEY = 'fs_path'
 
 function loadSavedPath(): string[] {
@@ -55,7 +55,8 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
   const cloudFolder = webdavFolderRaw || 'Cloud'
   const webdavUrl = useConfigStore(s => s.config.webdav_url)
   const webdavConfigured = !!webdavUrl || !!webdavFolderRaw
-  const settings = useUISettingsStore(s => s.settings)
+  const { settings, update: updateSettings } = useUISettingsStore()
+  const role = useUserStore(s => s.role)
   const playTrack = usePlayerStore(s => s.playTrack)
   const currentTrackPath = usePlayerStore(s => s.currentTrack?.path)
 
@@ -72,9 +73,8 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
   // Direkt via list-recursive vollständig geladene Ordner. Nur diese dürfen allSel=true zeigen.
   // Elternordner mit Merge-Teildaten zeigen – (someSel), bis sie selbst vollständig geladen werden.
   const [completedCloudFolders, setCompletedCloudFolders] = useState<Set<string>>(new Set())
-  const [sort, setSort] = useState<{ by: SortBy; dir: SortDir }>(() => {
-    try { return JSON.parse(localStorage.getItem(SORT_KEY) || '{}') } catch { return { by: settings.sortBy as SortBy, dir: settings.sortDir as SortDir } }
-  })
+  // Nicht-Admins können lokal sortieren (Session, kein Persist), Admins speichern global.
+  const [localFolderSort, setLocalFolderSort] = useState<Record<string, { by: SortBy; dir: SortDir }>>({})
   const [viewerFile, setViewerFile] = useState<{ path: string; name: string; type: Exclude<FileType, 'other'> } | null>(null)
   const [globalResults, setGlobalResults] = useState<AudioFile[]>([])
   const [searchFocused, setSearchFocused] = useState(false)
@@ -84,6 +84,10 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
 
   const isCloud = !!webdavUrl && path[0] === cloudFolder
   const currentFolder = path.join('/')
+  const sort: { by: SortBy; dir: SortDir } =
+    localFolderSort[currentFolder]
+    ?? settings.folderSort?.[currentFolder]
+    ?? { by: 'date', dir: 'desc' }
 
   const parentRef = useRef<HTMLDivElement>(null)
   const swipeStartX = useRef(0)
@@ -358,8 +362,11 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
 
   function toggleSort(by: SortBy) {
     const next = sort.by === by ? { by, dir: sort.dir === 'asc' ? 'desc' as const : 'asc' as const } : { by, dir: 'asc' as const }
-    setSort(next)
-    localStorage.setItem(SORT_KEY, JSON.stringify(next))
+    if (role === 'admin') {
+      updateSettings({ folderSort: { ...settings.folderSort, [currentFolder]: next } })
+    } else {
+      setLocalFolderSort(prev => ({ ...prev, [currentFolder]: next }))
+    }
   }
 
   function startRename(name: string) {
@@ -456,7 +463,8 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
         : col === 'date'
           ? containerW - fixed - nameW
           : Infinity
-      const next = { ...prev, [col]: Math.max(min, Math.min(max, (prev[col] ?? 120) + delta)) }
+      const currentW = col === 'name' ? nameW : col === 'date' ? dateW : sizeW
+      const next = { ...prev, [col]: Math.max(min, Math.min(max, currentW + delta)) }
       saveColWidths(next)
       return next
     })
