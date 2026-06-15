@@ -66,6 +66,7 @@ func Register(mux *http.ServeMux, h *sse.Hub) {
 	mux.HandleFunc("GET /api/webdav/stream", WebDavStream)
 	mux.HandleFunc("PUT /api/webdav/put", WebDavPut)
 	mux.HandleFunc("GET /api/webdav/test", WebDavTest)
+	mux.HandleFunc("GET /api/webdav/root-folders", WebDavRootFolders)
 	mux.HandleFunc("GET /api/list-recursive", ListRecursive)
 	mux.HandleFunc("GET /api/capabilities", Capabilities)
 	mux.HandleFunc("GET /api/me", Me)
@@ -621,6 +622,21 @@ func WebDavTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]int{"count": count})
+}
+
+func WebDavRootFolders(w http.ResponseWriter, r *http.Request) {
+	items, err := webdav.List("")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	folders := make([]string, 0)
+	for _, item := range items {
+		if item.IsDir {
+			folders = append(folders, item.Name)
+		}
+	}
+	writeJSON(w, folders)
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ export interface UISettings {
   // Explorer
   sortBy: 'name' | 'date'
   sortDir: 'asc' | 'desc'
+  hiddenCloudFolders: string[]
 }
 
 const DEFAULTS: UISettings = {
@@ -26,6 +27,7 @@ const DEFAULTS: UISettings = {
   amPmSplit: true,
   sortBy: 'date',
   sortDir: 'desc',
+  hiddenCloudFolders: [],
 }
 
 const CACHE_KEY = 'ui_settings_cache'

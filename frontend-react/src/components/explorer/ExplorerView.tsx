@@ -206,9 +206,12 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
     const prefix = currentFolder ? currentFolder + '/' : ''
 
     // Virtuellen "Cloud"-Ordner am Root injizieren; lokalen Ordner gleichen Namens ausblenden (verhindert Duplikat + Stale-Cache-Bug)
+    const hiddenFolders = settings.hiddenCloudFolders ?? []
     const effectiveDirEntries = (path.length === 0 && webdavConfigured)
       ? [{ name: cloudFolder, is_dir: true, size: 0, mod_time: '' }, ...dirEntries.filter(e => e.name !== cloudFolder)]
-      : dirEntries
+      : (isCloud && path.length === 1 && hiddenFolders.length > 0)
+        ? dirEntries.filter(e => !hiddenFolders.includes(e.name))
+        : dirEntries
 
     const filesByPath = new Map<string, AudioFile>()
     const folderFilesMap = new Map<string, AudioFile[]>()
@@ -279,7 +282,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
     ]
 
     return { rows, folderFilesMap, scopeFiles } as Result
-  }, [dirEntries, allFiles, currentFolder, path, search, sort, cloudFolderFiles, cloudFolder, webdavConfigured])
+  }, [dirEntries, allFiles, currentFolder, path, search, sort, cloudFolderFiles, cloudFolder, webdavConfigured, isCloud, settings.hiddenCloudFolders])
 
   const nameColWidth = useMemo(() => {
     if (!rows.length) return undefined

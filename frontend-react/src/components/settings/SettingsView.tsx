@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Maximize, Minimize, RotateCcw, Power, AlertTriangle } from 'lucide-react'
+import { X, Maximize, Minimize, RotateCcw, Power, AlertTriangle, ChevronDown } from 'lucide-react'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useFilesStore } from '@/stores/filesStore'
@@ -117,6 +117,12 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const [webdavPw, setWebdavPw] = useState(config.webdav_password)
   const [webdavFolder, setWebdavFolder] = useState(config.webdav_folder)
   const [webdavStatus, setWebdavStatus] = useState('')
+  const [cloudRootFolders, setCloudRootFolders] = useState<string[]>([])
+  const [cloudFoldersOpen, setCloudFoldersOpen] = useState(false)
+  useEffect(() => {
+    if (!config.webdav_url) return
+    fetch('/api/webdav/root-folders').then(r => r.ok ? r.json() : []).then(setCloudRootFolders).catch(() => {})
+  }, [config.webdav_url])
   type ScanPhase = 'idle' | 'running' | 'done'
   const [scanPhase, setScanPhase] = useState<ScanPhase>('idle')
   const [scanProgress, setScanProgress] = useState<{ pct: number; done: number; total: number } | null>(null)
@@ -370,6 +376,32 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 <p className={`text-xs font-medium ${webdavStatus.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
                   {webdavStatus}
                 </p>
+              )}
+              {cloudRootFolders.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setCloudFoldersOpen(o => !o)}
+                    className="flex items-center justify-between w-full py-0.5"
+                  >
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ordner anzeigen</span>
+                    <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${cloudFoldersOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {cloudFoldersOpen && (
+                    <div className="mt-1 space-y-1">
+                      {cloudRootFolders.map(name => (
+                        <ToggleField
+                          key={name}
+                          label={name}
+                          checked={!(settings.hiddenCloudFolders ?? []).includes(name)}
+                          onChange={v => {
+                            const hidden = settings.hiddenCloudFolders ?? []
+                            update({ hiddenCloudFolders: v ? hidden.filter(n => n !== name) : [...hidden, name] })
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </Card>
 
