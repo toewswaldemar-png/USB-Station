@@ -110,6 +110,8 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   }, [exitConfirm])
   const [appName, setAppName] = useState(config.app_name)
   const appNameTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const [appSubtitle, setAppSubtitle] = useState(config.app_subtitle || localStorage.getItem('fs_app_subtitle') || '')
+  const appSubtitleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [audioPath, setAudioPath] = useState(config.audio_path)
   const [canPickFolder, setCanPickFolder] = useState(false)
   const [webdavUrl, setWebdavUrl] = useState(config.webdav_url)
@@ -241,6 +243,21 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                 />
               </div>
               <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-400">Untertitel (Anmeldeseite)</label>
+                <input
+                  className={inputCls}
+                  style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
+                  value={appSubtitle}
+                  placeholder="Audio-Management"
+                  onChange={e => {
+                    const v = e.target.value
+                    setAppSubtitle(v)
+                    clearTimeout(appSubtitleTimer.current)
+                    appSubtitleTimer.current = setTimeout(() => saveConfig({ app_subtitle: v }), 400)
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
                 <label className="text-xs font-semibold text-gray-400">Schriftart</label>
                 <select
                   className={`${selectCls} w-full`}
@@ -268,11 +285,11 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
             </Card>
 
             <Card title="Kalender">
-              <Field label="Heute-Stil">
+              <Field label="Chip-Stil">
                 <Seg
-                  value={settings.todayStyle}
-                  options={[{ label: 'Ring', value: 'ring' }, { label: 'Gefüllt', value: 'filled' }, { label: 'Zelle', value: 'cell' }]}
-                  onChange={v => update({ todayStyle: v as 'ring' | 'filled' | 'cell' })}
+                  value={settings.chipStyle ?? 'bar'}
+                  options={[{ label: 'Balken', value: 'bar' }, { label: 'Fläche', value: 'flat' }]}
+                  onChange={v => update({ chipStyle: v as 'bar' | 'flat' })}
                 />
               </Field>
               <Field label="Eintraggröße">
@@ -288,18 +305,12 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                   options={[
                     { label: 'Sanft', value: 'sanft' },
                     { label: 'Fade', value: 'fade' },
-                    { label: 'Slide', value: 'slide' },
+                    { label: 'Ohne', value: 'none' },
                   ]}
                   onChange={v => update({ calAnimation: v as typeof settings.calAnimation })}
                 />
               </Field>
-              <Field label="Geschwindigkeit">
-                <Seg
-                  value={settings.calAnimSpeed}
-                  options={[{ label: 'Langsam', value: 'slow' }, { label: 'Normal', value: 'normal' }, { label: 'Schnell', value: 'fast' }]}
-                  onChange={v => update({ calAnimSpeed: v as 'slow' | 'normal' | 'fast' })}
-                />
-              </Field>
+
 <ToggleField label="AM/PM-Aufteilung" checked={settings.amPmSplit} onChange={v => update({ amPmSplit: v })} />
             </Card>
 

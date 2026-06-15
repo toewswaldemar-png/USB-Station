@@ -15,6 +15,7 @@ var (
 // Config enthält die persistente Anwendungskonfiguration.
 type Config struct {
 	AppName          string `json:"app_name,omitempty"`
+	AppSubtitle      string `json:"app_subtitle,omitempty"`
 	AudioPath        string `json:"audio_path"`
 	Port             int    `json:"port,omitempty"`
 	SettingsPassword string `json:"settings_password,omitempty"`
