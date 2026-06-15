@@ -39,24 +39,23 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
   return (
     <aside className="w-64 shrink-0 flex flex-col bg-gray-50 overflow-hidden shadow-[2px_0_12px_rgba(0,0,0,0.06)] z-10">
 
-      {/* Tab-Umschalter */}
-      <div className="flex items-center justify-center gap-1 px-3 py-3 shrink-0">
-        <button
-          onClick={() => onTabChange('calendar')}
-          className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-sm font-semibold transition-colors
-            ${activeTab === 'calendar' ? 'text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/60'}`}
-          style={activeTab === 'calendar' ? { background: 'var(--accent)' } : undefined}
-        >
-          <Calendar size={13} /> Kalender
-        </button>
-        <button
-          onClick={() => onTabChange('explorer')}
-          className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-sm font-semibold transition-colors
-            ${activeTab === 'explorer' ? 'text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/60'}`}
-          style={activeTab === 'explorer' ? { background: 'var(--accent)' } : undefined}
-        >
-          <FolderOpen size={13} /> Explorer
-        </button>
+      {/* Tab-Umschalter — Segmented Control */}
+      <div className="flex items-center px-3 py-3 shrink-0">
+        <div className="flex w-full rounded-full p-1 gap-1" style={{ background: 'rgba(0,0,0,0.06)' }}>
+          {(['calendar', 'explorer'] as const).map(tab => {
+            const active = activeTab === tab
+            return (
+              <button
+                key={tab}
+                onClick={() => onTabChange(tab)}
+                className={`flex-1 flex items-center justify-center gap-1.5 h-8 rounded-full text-sm font-semibold transition-all
+                  ${active ? 'text-gray-800 shadow-sm bg-white' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {tab === 'calendar' ? <><Calendar size={13} /> Kalender</> : <><FolderOpen size={13} /> Explorer</>}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* USB-Laufwerk-Karte */}
@@ -74,23 +73,17 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
           {selectedCount === 0 ? 'Auswahl' : `${selectedCount} ausgewählt`}
         </p>
         <CopyProgress sseMsg={sseMsg} selectedDrive={selected} />
-        {selectedCount === 0 ? (
-          <p className="px-3 py-3 text-[12px] text-gray-400 text-center">
-            Einträge im Kalender auswählen
-          </p>
-        ) : (
-          <div className="relative flex-1 min-h-0">
-            <div ref={innerRef} onScroll={checkScroll} className="overflow-y-auto no-scrollbar h-full">
-              <SelectionPanel />
-            </div>
-            {showArrow && (
-              <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none flex items-end justify-center pb-1"
-                style={{ background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.95))' }}>
-                <ChevronDown size={16} className="text-gray-400" />
-              </div>
-            )}
+        <div className="relative flex-1 min-h-0">
+          <div ref={innerRef} onScroll={checkScroll} className="overflow-y-auto no-scrollbar h-full">
+            <SelectionPanel emptyLabel="Einträge im Kalender auswählen" />
           </div>
-        )}
+          {showArrow && (
+            <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none flex items-end justify-center pb-1"
+              style={{ background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.95))' }}>
+              <ChevronDown size={16} className="text-gray-400" />
+            </div>
+          )}
+        </div>
       </div>
 
       {!isKiosk && <SidebarPlayer />}
