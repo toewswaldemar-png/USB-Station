@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronRight, Home, ArrowLeft, ArrowRight, Folder, Music, ChevronUp, ChevronDown, Check, Minus, Cloud, Image, FileText, File, AlignLeft, X, Search } from 'lucide-react'
 import { useFilesStore } from '@/stores/filesStore'
@@ -46,9 +46,10 @@ function loadSavedPath(): string[] {
 
 interface ExplorerViewProps {
   isMobile?: boolean
+  resetKey?: number
 }
 
-export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
+export default function ExplorerView({ isMobile = false, resetKey }: ExplorerViewProps) {
   const allFiles = useFilesStore(s => s.allFiles)
   const { selectedFiles, toggleFile, registerFileMeta } = useSelectionStore()
   const webdavFolderRaw = useConfigStore(s => s.config.webdav_folder)
@@ -81,6 +82,21 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
 
   const searchRef = useRef<HTMLInputElement>(null)
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null)
+
+  const isFirstReset = useRef(true)
+  useLayoutEffect(() => {
+    if (isFirstReset.current) { isFirstReset.current = false; return }
+    const id = ++navId.current
+    didNavigate.current = false
+    setPath([])
+    setDirEntries(getCachedDir('') ?? null)
+    setHistory([[]])
+    setHistIdx(0)
+    fetchDir('').then(data => {
+      if (navId.current !== id) return
+      if (data) setDirEntries(data)
+    })
+  }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isCloud = !!webdavUrl && path[0] === cloudFolder
   const currentFolder = path.join('/')
@@ -698,7 +714,7 @@ export default function ExplorerView({ isMobile = false }: ExplorerViewProps) {
 
         <div
           key={currentFolder}
-          className={didNavigate.current ? (settings.calAnimation === 'slide' ? (navDir.current === 'next' ? 'cal-month-next' : 'cal-month-prev') : `cal-anim-${settings.calAnimation}`) : ''}
+          className={didNavigate.current && settings.calAnimation !== 'none' ? `cal-anim-${settings.calAnimation}` : ''}
           style={{ '--cal-dur': { slow: '0.6s', normal: '0.3s', fast: '0.15s' }[settings.calAnimSpeed] ?? '0.3s' } as React.CSSProperties}
         >
         <div style={{ height: virtualizer.getTotalSize() + 'px', position: 'relative' }}>

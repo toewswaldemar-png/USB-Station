@@ -29,6 +29,7 @@ export default function App() {
     () => (localStorage.getItem(ACTIVE_TAB_KEY) as 'calendar' | 'explorer') || 'calendar'
   )
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [explorerResetKey, setExplorerResetKey] = useState(0)
   const tabDirRef = useRef<'next' | 'prev'>('next')
   const [sseMsg, setSseMsg] = useState<{ data: string }>({ data: '' })
   const [calMountKey, setCalMountKey] = useState(0)
@@ -87,7 +88,7 @@ export default function App() {
 
   function switchTab(tab: 'calendar' | 'explorer') {
     tabDirRef.current = tab === 'explorer' ? 'next' : 'prev'
-    if (tab === 'explorer') localStorage.removeItem('fs_path')
+    if (tab === 'explorer') setExplorerResetKey(k => k + 1)
     if (tab === 'calendar') setCalMountKey(k => k + 1)
     setActiveTab(tab)
     localStorage.setItem(ACTIVE_TAB_KEY, tab)
@@ -101,14 +102,12 @@ export default function App() {
     const el = expWrapRef.current
     if (!el) return
     if (!explorerEverShown.current) { explorerEverShown.current = true; return }
-    const cls = settings.calAnimation === 'slide'
-      ? (tabDirRef.current === 'next' ? 'cal-month-next' : 'cal-month-prev')
-      : `cal-anim-${settings.calAnimation}`
+    const cls = settings.calAnimation === 'none' ? '' : `cal-anim-${settings.calAnimation}`
     const dur = ({ slow: '0.6s', normal: '0.3s', fast: '0.15s' } as Record<string, string>)[settings.calAnimSpeed] ?? '0.3s'
     el.style.setProperty('--cal-dur', dur)
     el.classList.remove(...ALL_ANIM_CLASSES)
     void el.offsetHeight
-    el.classList.add(cls)
+    if (cls) el.classList.add(cls)
   }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auth-Gate
@@ -140,7 +139,7 @@ export default function App() {
             <ErrorBoundary FallbackComponent={ErrorFallback}>
               <div
                 key={calMountKey}
-                className={`absolute inset-0 overflow-hidden ${calMountKey > 0 ? (settings.calAnimation === 'slide' ? 'cal-month-prev' : `cal-anim-${settings.calAnimation}`) : ''}`}
+                className={`absolute inset-0 overflow-hidden ${calMountKey > 0 && settings.calAnimation !== 'none' ? `cal-anim-${settings.calAnimation}` : ''}`}
                 style={{ '--cal-dur': ({ slow: '0.6s', normal: '0.3s', fast: '0.15s' } as Record<string, string>)[settings.calAnimSpeed] ?? '0.3s' } as React.CSSProperties}
               >
                 <CalendarView sseMsg={sseMsg.data} />
@@ -154,7 +153,7 @@ export default function App() {
             style={{ visibility: activeTab === 'explorer' ? 'visible' : 'hidden' }}
           >
             <ErrorBoundary FallbackComponent={ErrorFallback}>
-              <ExplorerView />
+              <ExplorerView resetKey={explorerResetKey} />
             </ErrorBoundary>
           </div>
         </main>
