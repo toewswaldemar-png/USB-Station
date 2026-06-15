@@ -15,13 +15,14 @@ interface Props {
   compact: boolean
   bold: boolean
   amPmSplit: boolean
+  chipStyle?: 'bar' | 'flat'
   groupStatus: (files: AudioFile[]) => 'none' | 'partial' | 'full'
   onToggleGroup: (files: AudioFile[]) => void
 }
 
 export default function CalendarDay({
   day, isToday, isWeekend, todayStyle, groups, ghostGroups = [],
-  entrySize, compact, bold,
+  entrySize, compact, bold, chipStyle = 'bar',
   amPmSplit, groupStatus, onToggleGroup,
 }: Props) {
 
@@ -65,6 +66,7 @@ export default function CalendarDay({
               size={entrySize}
               compact={compact}
               bold={bold}
+              chipStyle={chipStyle}
               onClick={() => onToggleGroup(files)}
             />
           </div>
@@ -76,6 +78,7 @@ export default function CalendarDay({
               size={entrySize}
               compact={compact}
               bold={bold}
+              chipStyle={chipStyle}
               ghost
             />
           </div>
