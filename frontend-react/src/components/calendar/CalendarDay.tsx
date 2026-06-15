@@ -10,6 +10,7 @@ interface Props {
   isWeekend: boolean
   todayStyle: 'ring' | 'filled' | 'cell'
   groups: Map<string, AudioFile[]>
+  ghostGroups?: string[]
   entrySize: 'sm' | 'md' | 'lg'
   compact: boolean
   bold: boolean
@@ -19,7 +20,7 @@ interface Props {
 }
 
 export default function CalendarDay({
-  day, isToday, isWeekend, todayStyle, groups,
+  day, isToday, isWeekend, todayStyle, groups, ghostGroups = [],
   entrySize, compact, bold,
   amPmSplit, groupStatus, onToggleGroup,
 }: Props) {
@@ -33,6 +34,8 @@ export default function CalendarDay({
     : []
 
   const visibleEntries = (amPmSplit ? [...amEntries, ...pmEntries] : allEntries).slice(0, 2)
+  const ghostSlots = Math.max(0, 2 - visibleEntries.length)
+  const visibleGhosts = ghostGroups.slice(0, ghostSlots)
 
   const containerStyle: CSSProperties = {
     background: isToday && todayStyle === 'cell' ? 'var(--accent-xl)' : 'white',
@@ -54,7 +57,7 @@ export default function CalendarDay({
       </div>
       <div className="flex-1 overflow-hidden px-1.5 pb-1.5 flex flex-col gap-0.5">
         {visibleEntries.map(([key, files]) => (
-          <div key={key} className={`min-h-0 py-0.5 ${visibleEntries.length === 1 ? 'h-1/2' : 'flex-1'}`}>
+          <div key={key} className={`min-h-0 py-0.5 ${visibleEntries.length + visibleGhosts.length === 1 ? 'h-1/2' : 'flex-1'}`}>
             <CalendarEntry
               label={key}
               files={files}
@@ -63,6 +66,17 @@ export default function CalendarDay({
               compact={compact}
               bold={bold}
               onClick={() => onToggleGroup(files)}
+            />
+          </div>
+        ))}
+        {visibleGhosts.map(name => (
+          <div key={`ghost-${name}`} className={`min-h-0 py-0.5 ${visibleEntries.length + visibleGhosts.length === 1 ? 'h-1/2' : 'flex-1'}`}>
+            <CalendarEntry
+              label={name}
+              size={entrySize}
+              compact={compact}
+              bold={bold}
+              ghost
             />
           </div>
         ))}

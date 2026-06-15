@@ -67,6 +67,7 @@ func Register(mux *http.ServeMux, h *sse.Hub) {
 	mux.HandleFunc("PUT /api/webdav/put", WebDavPut)
 	mux.HandleFunc("GET /api/webdav/test", WebDavTest)
 	mux.HandleFunc("GET /api/webdav/root-folders", WebDavRootFolders)
+	mux.HandleFunc("GET /api/dated-folders", DatedFolders)
 	mux.HandleFunc("GET /api/list-recursive", ListRecursive)
 	mux.HandleFunc("GET /api/capabilities", Capabilities)
 	mux.HandleFunc("GET /api/me", Me)
@@ -637,6 +638,37 @@ func WebDavRootFolders(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, folders)
+}
+
+func DatedFolders(w http.ResponseWriter, r *http.Request) {
+	cfg := config.Load()
+	if cfg.AudioPath == "" {
+		writeJSON(w, []any{})
+		return
+	}
+	type item struct {
+		Date string `json:"date"`
+		Name string `json:"name"`
+	}
+	result := make([]item, 0)
+	var walk func(dir string)
+	walk = func(dir string) {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			if date := scan.ExtractDate(e.Name()); date != "" {
+				result = append(result, item{Date: date, Name: e.Name()})
+			}
+			walk(filepath.Join(dir, e.Name()))
+		}
+	}
+	walk(cfg.AudioPath)
+	writeJSON(w, result)
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

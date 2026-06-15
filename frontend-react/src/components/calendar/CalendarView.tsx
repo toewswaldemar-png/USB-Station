@@ -33,7 +33,9 @@ function loadCalMonth(): { year: number; month: number } {
   return { year: today.getFullYear(), month: today.getMonth() }
 }
 
-export default function CalendarView() {
+interface DatedFolder { date: string; name: string }
+
+export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
   const today = new Date()
   const [year, setYear] = useState(() => loadCalMonth().year)
   const [month, setMonth] = useState(() => loadCalMonth().month)
@@ -43,6 +45,20 @@ export default function CalendarView() {
   const settings = useUISettingsStore(s => s.settings)
   const filesByYearMonth = useFilesStore(s => s.filesByYearMonth)
   const { selectedFiles, toggleGroup } = useSelectionStore()
+
+  const [datedFolders, setDatedFolders] = useState<DatedFolder[]>([])
+
+  async function fetchDatedFolders() {
+    try {
+      const res = await fetch('/api/dated-folders')
+      if (res.ok) setDatedFolders(await res.json())
+    } catch { /* ignorieren */ }
+  }
+
+  useEffect(() => { fetchDatedFolders() }, [])
+  useEffect(() => {
+    if (sseMsg === 'dir_invalidated' || (sseMsg ?? '').startsWith('done:')) fetchDatedFolders()
+  }, [sseMsg])
 
   const dragStartX = useRef(0)
   const dragStartY = useRef(0)
@@ -124,6 +140,19 @@ export default function CalendarView() {
   const WEEKEND_COLS = [5, 6]
 
   const byDay = buildByDay(groupMap)
+
+  // Ghost-Chips: date-benannte Ordner ohne Dateien für den aktuellen Monat
+  const byDayGhost = (() => {
+    const m = new Map<number, string[]>()
+    for (const { date, name } of datedFolders) {
+      if (!date.startsWith(ym)) continue
+      const day = parseInt(date.split('-')[2] || '0', 10)
+      if (!day) continue
+      if (!m.has(day)) m.set(day, [])
+      m.get(day)!.push(name)
+    }
+    return m
+  })()
 
   const SPEED_MS: Record<string, string> = { slow: '0.6s', normal: '0.3s', fast: '0.15s' }
   const monthAnimDur = SPEED_MS[settings.calAnimSpeed] ?? '0.3s'
@@ -240,6 +269,9 @@ export default function CalendarView() {
             const isToday = year === today.getFullYear() && month === today.getMonth() && day === today.getDate()
             const isWeekend = WEEKEND_COLS.includes(col)
             const dayGroups = byDay.get(day) ?? new Map()
+            const dayGhosts = (byDayGhost.get(day) ?? []).filter(name =>
+              ![...dayGroups.keys()].some(key => key.includes(name) || name.includes(key))
+            )
 
             return (
               <div key={`${year}-${month}-${day}`} className="border-r border-b border-gray-100 h-full">
@@ -249,6 +281,7 @@ export default function CalendarView() {
                   isWeekend={isWeekend}
                   todayStyle={settings.todayStyle}
                   groups={dayGroups}
+                  ghostGroups={dayGhosts}
                   entrySize={settings.entrySize}
                   compact={false}
                   bold={false}

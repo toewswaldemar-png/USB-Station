@@ -143,7 +143,7 @@ export default function App() {
                 className={`absolute inset-0 overflow-hidden ${calMountKey > 0 ? (settings.calAnimation === 'slide' ? 'cal-month-prev' : `cal-anim-${settings.calAnimation}`) : ''}`}
                 style={{ '--cal-dur': ({ slow: '0.6s', normal: '0.3s', fast: '0.15s' } as Record<string, string>)[settings.calAnimSpeed] ?? '0.3s' } as React.CSSProperties}
               >
-                <CalendarView />
+                <CalendarView sseMsg={sseMsg.data} />
               </div>
             </ErrorBoundary>
           )}
