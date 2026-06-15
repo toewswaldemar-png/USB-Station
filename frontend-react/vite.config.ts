@@ -8,7 +8,7 @@ function gitVersion(): string {
   try {
     return execSync('git describe --tags --always', { encoding: 'utf8' }).trim()
   } catch {
-    return 'dev'
+    return process.env.GIT_VERSION || 'dev'
   }
 }
 

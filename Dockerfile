@@ -2,11 +2,12 @@
 # vite.config.ts baut nach "../filestation-go/webembed/web/" relativ zu frontend-react/.
 # Deshalb die Verzeichnisstruktur aus dem Repo nachbauen.
 FROM node:22-alpine AS frontend
+ARG GIT_VERSION=dev
 WORKDIR /workspace/frontend-react
 COPY frontend-react/package*.json ./
 RUN npm ci
 COPY frontend-react/ .
-RUN npm run build
+RUN GIT_VERSION=$GIT_VERSION npm run build
 # Ergebnis liegt jetzt in /workspace/filestation-go/webembed/web/
 
 # ── Stage 2: Go-Server ────────────────────────────────────────────────────────
