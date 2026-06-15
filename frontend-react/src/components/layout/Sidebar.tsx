@@ -43,7 +43,7 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
       <div className="flex items-center justify-center gap-1 px-3 py-2 shrink-0 border-b border-gray-200 bg-white">
         <button
           onClick={() => onTabChange('calendar')}
-          className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-semibold transition-colors
+          className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-sm font-semibold transition-colors
             ${activeTab === 'calendar' ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}`}
           style={activeTab === 'calendar' ? { background: 'var(--accent)' } : undefined}
         >
@@ -51,7 +51,7 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
         </button>
         <button
           onClick={() => onTabChange('explorer')}
-          className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-semibold transition-colors
+          className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-sm font-semibold transition-colors
             ${activeTab === 'explorer' ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}`}
           style={activeTab === 'explorer' ? { background: 'var(--accent)' } : undefined}
         >
