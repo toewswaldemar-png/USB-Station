@@ -20,13 +20,13 @@ export default function CalendarEntry({ label, files, status = 'none', size, bol
 
   const flatStyle: Record<string, React.CSSProperties> = {
     none:    { background: 'var(--accent-l)', color: '#374151' },
-    partial: { background: 'color-mix(in srgb, var(--accent) 65%, transparent)', color: '#fff' },
+    partial: { background: 'var(--accent-l)', color: 'color-mix(in srgb, var(--accent) 85%, #000)', outline: '1.5px solid var(--accent)', outlineOffset: '-1.5px' },
     full:    { background: 'var(--accent)', color: '#fff' },
   }
 
   const barStyle: Record<string, React.CSSProperties> = {
     none:    { background: 'var(--accent-xl)', borderLeft: '3px solid color-mix(in srgb, var(--accent) 50%, transparent)', borderRadius: '0 6px 6px 0', color: '#6b7280' },
-    partial: { background: 'var(--accent-l)',  borderLeft: '3px solid var(--accent)', borderRadius: '0 6px 6px 0', color: '#fff' },
+    partial: { background: 'var(--accent-l)',  borderLeft: '3px solid var(--accent)', borderRadius: '0 6px 6px 0', color: 'color-mix(in srgb, var(--accent) 85%, #000)' },
     full:    { background: 'var(--accent)',    borderLeft: '3px solid color-mix(in srgb, var(--accent) 80%, #000)', borderRadius: '0 6px 6px 0', color: '#fff' },
   }
 
