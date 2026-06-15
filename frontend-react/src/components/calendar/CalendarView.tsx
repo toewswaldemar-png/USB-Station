@@ -35,6 +35,8 @@ function loadCalMonth(): { year: number; month: number } {
 
 interface DatedFolder { date: string; name: string }
 
+let datedFoldersCache: DatedFolder[] = []
+
 export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
   const today = new Date()
   const [year, setYear] = useState(() => loadCalMonth().year)
@@ -46,12 +48,16 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
   const filesByYearMonth = useFilesStore(s => s.filesByYearMonth)
   const { selectedFiles, toggleGroup } = useSelectionStore()
 
-  const [datedFolders, setDatedFolders] = useState<DatedFolder[]>([])
+  const [datedFolders, setDatedFolders] = useState<DatedFolder[]>(datedFoldersCache)
 
   async function fetchDatedFolders() {
     try {
       const res = await fetch('/api/dated-folders')
-      if (res.ok) setDatedFolders(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        datedFoldersCache = data
+        setDatedFolders(data)
+      }
     } catch { /* ignorieren */ }
   }
 
@@ -156,10 +162,8 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
 
   const SPEED_MS: Record<string, string> = { slow: '0.6s', normal: '0.3s', fast: '0.15s' }
   const monthAnimDur = SPEED_MS[settings.calAnimSpeed] ?? '0.3s'
-  const monthAnimClass = navigated.current
-    ? (settings.calAnimation === 'slide'
-        ? (slideDir === 'next' ? 'cal-month-next' : 'cal-month-prev')
-        : `cal-anim-${settings.calAnimation}`)
+  const monthAnimClass = navigated.current && settings.calAnimation !== 'none'
+    ? `cal-anim-${settings.calAnimation}`
     : ''
 
   function groupStatus(files: AudioFile[]): 'none' | 'partial' | 'full' {
@@ -170,14 +174,12 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
   }
 
   return (
-    <div
-      className="flex flex-col h-full bg-gray-100"
-    >
+    <div className="flex flex-col h-full">
       {/* Monatsnavigation */}
-      <div className="flex items-center justify-center px-4 py-2 bg-gray-100 shrink-0 gap-2">
+      <div className="flex items-center justify-center px-4 py-2 bg-gray-50 shrink-0 gap-2">
         <button
           onClick={goPrev}
-          className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md active:scale-95 transition-all hover:text-[var(--accent)]"
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-500 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
         >
           <ChevronLeft size={18} />
         </button>
@@ -204,13 +206,13 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
 
         <button
           onClick={goNext}
-          className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-500 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
         >
           <ChevronRight size={18} />
         </button>
         <button
           onClick={goToday}
-          className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-500 shadow-sm hover:shadow-md hover:text-[var(--accent)] active:scale-95 transition-all"
           title="Heute"
         >
           <CalendarDays size={18} />
@@ -219,8 +221,8 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
 
       {/* Wochentag-Header + Kalender-Grid — gemeinsam animiert */}
       <div
-        className="flex-1 overflow-hidden"
-        style={{ touchAction: 'pan-y' }}
+        className="flex-1"
+        style={{ touchAction: 'pan-y', overflow: 'hidden', position: 'relative' }}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
       >
@@ -256,6 +258,7 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
                     day={d} isToday={false} isWeekend={isWeekend}
                     todayStyle={settings.todayStyle} groups={dayGroups}
                     entrySize={settings.entrySize} compact={false} bold={false}
+                    chipStyle={settings.chipStyle}
                     amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
                     onToggleGroup={toggleGroup}
                   />
@@ -285,6 +288,7 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
                   entrySize={settings.entrySize}
                   compact={false}
                   bold={false}
+                  chipStyle={settings.chipStyle}
                   amPmSplit={settings.amPmSplit}
                   groupStatus={groupStatus}
                   onToggleGroup={toggleGroup}
@@ -304,6 +308,7 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
                     day={d} isToday={false} isWeekend={isWeekend}
                     todayStyle={settings.todayStyle} groups={dayGroups}
                     entrySize={settings.entrySize} compact={false} bold={false}
+                    chipStyle={settings.chipStyle}
                     amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
                     onToggleGroup={toggleGroup}
                   />
