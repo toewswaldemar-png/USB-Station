@@ -40,11 +40,11 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
     <aside className="w-64 shrink-0 flex flex-col bg-gray-50 overflow-hidden shadow-[2px_0_12px_rgba(0,0,0,0.06)] z-10">
 
       {/* Tab-Umschalter */}
-      <div className="flex items-center justify-center gap-1 px-3 py-2 shrink-0 border-b border-gray-200 bg-white">
+      <div className="flex items-center justify-center gap-1 px-3 py-3 shrink-0">
         <button
           onClick={() => onTabChange('calendar')}
           className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-sm font-semibold transition-colors
-            ${activeTab === 'calendar' ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+            ${activeTab === 'calendar' ? 'text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/60'}`}
           style={activeTab === 'calendar' ? { background: 'var(--accent)' } : undefined}
         >
           <Calendar size={13} /> Kalender
@@ -52,7 +52,7 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
         <button
           onClick={() => onTabChange('explorer')}
           className={`flex items-center gap-1.5 px-3 h-9 rounded-full text-sm font-semibold transition-colors
-            ${activeTab === 'explorer' ? 'text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+            ${activeTab === 'explorer' ? 'text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/60'}`}
           style={activeTab === 'explorer' ? { background: 'var(--accent)' } : undefined}
         >
           <FolderOpen size={13} /> Explorer
