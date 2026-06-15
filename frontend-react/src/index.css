@@ -36,7 +36,7 @@ body {
 }
 
 /* Kalender-Animationen */
-@keyframes cal-sanft-in   { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+@keyframes cal-sanft-in   { from { transform: scale(0.95) } to { transform: none } }
 @keyframes cal-fade-in    { from { opacity: 0 } to { opacity: 1 } }
 @keyframes cal-slide-in   { from { transform: translateY(-8px); opacity: 0 } to { transform: none; opacity: 1 } }
 @keyframes cal-flip-in    { from { transform: rotateX(-90deg); opacity: 0 } to { transform: none; opacity: 1 } }
@@ -53,8 +53,8 @@ body {
 .cal-anim-bounce { animation: cal-bounce-in var(--cal-dur, 0.3s) ease both }
 
 /* Kalender-Monatswechsel */
-@keyframes cal-month-next { from { transform: translateX(40px); opacity: 0 } to { transform: none; opacity: 1 } }
-@keyframes cal-month-prev { from { transform: translateX(-40px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes cal-month-next { from { transform: translateX(100%) } to { transform: none } }
+@keyframes cal-month-prev { from { transform: translateX(-100%) } to { transform: none } }
 .cal-month-next { animation: cal-month-next var(--cal-dur, 0.25s) ease both }
 .cal-month-prev { animation: cal-month-prev var(--cal-dur, 0.25s) ease both }
 

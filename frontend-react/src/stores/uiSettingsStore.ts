@@ -6,10 +6,11 @@ export interface UISettings {
   // Kalender
   todayStyle: 'ring' | 'filled' | 'cell'
   entrySize: 'sm' | 'md' | 'lg'
-  calAnimation: 'sanft' | 'fade' | 'slide'
+  calAnimation: 'sanft' | 'fade' | 'none'
   calAnimSpeed: 'slow' | 'normal' | 'fast'
   swipeThreshold: number
   amPmSplit: boolean
+  chipStyle: 'bar' | 'flat'
   // Explorer
   sortBy: 'name' | 'date'
   sortDir: 'asc' | 'desc'
@@ -20,14 +21,15 @@ export interface UISettings {
 const DEFAULTS: UISettings = {
   fontFamily: 'system-ui, Segoe UI, sans-serif',
   colorPreset: 0,
-  todayStyle: 'ring',
+  todayStyle: 'filled',
   entrySize: 'md',
   calAnimation: 'sanft',
-  calAnimSpeed: 'normal',
+  calAnimSpeed: 'slow',
   swipeThreshold: 30,
   amPmSplit: true,
   sortBy: 'date',
   sortDir: 'desc',
+  chipStyle: 'bar',
   hiddenCloudFolders: [],
   folderSort: {},
 }
