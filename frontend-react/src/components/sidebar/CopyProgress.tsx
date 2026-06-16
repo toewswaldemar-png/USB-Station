@@ -26,9 +26,9 @@ export default function CopyProgress({ sseMsg, selectedDrive }: Props) {
     } else if (msg.startsWith('copy_done:')) {
       const n = msg.split(':')[1]
       setProgress(null)
-      setStatus(`${n} Datei${Number(n) !== 1 ? 'en' : ''} kopiert`)
+      setStatus(`${n} Datei${Number(n) !== 1 ? 'en' : ''} kopiert – USB-Stick kann jetzt entfernt werden`)
       clearAll()
-      setTimeout(() => setStatus(''), 4000)
+      setTimeout(() => setStatus(''), 6000)
     } else if (msg.startsWith('copy_error:')) {
       setProgress(null)
       setStatus('Fehler beim Kopieren')

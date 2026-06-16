@@ -1,12 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
+import { HardDrive } from 'lucide-react'
 import { useFilesStore } from '@/stores/filesStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
+import { useSelectionStore } from '@/stores/selectionStore'
+import { usePlayerStore } from '@/stores/playerStore'
 import { useSSE } from '@/hooks/useSSE'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useUserStore } from '@/stores/userStore'
 import { COLOR_PRESETS } from '@/types'
+import type { UsbDrive } from '@/types'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import CalendarView from '@/components/calendar/CalendarView'
@@ -18,6 +22,14 @@ import LoginView from '@/components/auth/LoginView'
 import SetupView from '@/components/auth/SetupView'
 
 const ACTIVE_TAB_KEY = 'fs_activeTab'
+const isKiosk = new URLSearchParams(window.location.search).has('kiosk')
+const IDLE_RESET_MS = 3 * 60 * 1000
+
+// Kiosk: Login überspringen (Backend behandelt fs_kiosk-Cookie als Nicht-Admin "user").
+// Außerhalb des Kiosk-Aufrufs wird das Cookie entfernt, damit normale Admin-Nutzung unverändert Login verlangt.
+document.cookie = isKiosk
+  ? 'fs_kiosk=1; path=/; max-age=31536000'
+  : 'fs_kiosk=; path=/; max-age=0'
 
 function ErrorFallback({ error }: { error: unknown }) {
   return <p className="text-red-600 p-4">Fehler beim Laden: {String(error)}</p>
@@ -35,6 +47,8 @@ export default function App() {
   const [calMountKey, setCalMountKey] = useState(0)
   const expWrapRef = useRef<HTMLDivElement>(null)
   const explorerEverShown = useRef(activeTab === 'explorer')
+  const [usbToast, setUsbToast] = useState<string | null>(null)
+  const knownUsbPaths = useRef<Set<string> | null>(null)
 
   const loadFiles = useFilesStore(s => s.loadFiles)
   const refreshFiles = useFilesStore(s => s.refreshFiles)
@@ -61,7 +75,54 @@ export default function App() {
         if (!loading && allFiles.length === 0) refreshFiles()
       }, 500)
     }
+    if (isKiosk && data.startsWith('usb:')) {
+      try {
+        const drives = (JSON.parse(data.slice(4)) as UsbDrive[] | null) ?? []
+        const paths = new Set(drives.map(d => d.path))
+        if (knownUsbPaths.current !== null) {
+          const newDrive = drives.find(d => !knownUsbPaths.current!.has(d.path))
+          if (newDrive) {
+            setUsbToast(`USB-Stick „${newDrive.label}“ erkannt – bereit zum Kopieren`)
+            setTimeout(() => setUsbToast(null), 6000)
+          }
+        }
+        knownUsbPaths.current = paths
+      } catch { /* ignorieren */ }
+    }
   })
+
+  // Kiosk: Basiszustand der USB-Laufwerke laden, bevor SSE-Diffs ausgewertet werden.
+  useEffect(() => {
+    if (!isKiosk) return
+    fetch('/api/usb')
+      .then(r => r.json())
+      .then((d: UsbDrive[] | null) => { knownUsbPaths.current = new Set((d ?? []).map(x => x.path)) })
+      .catch(() => {})
+  }, [])
+
+  // Kiosk: Nach Inaktivität zurück zum Kalender (aktueller Monat), Auswahl + Wiedergabe zurücksetzen.
+  useEffect(() => {
+    if (!isKiosk) return
+    let timer: ReturnType<typeof setTimeout>
+    function resetIdle() {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        useSelectionStore.getState().clearAll()
+        usePlayerStore.getState().stop()
+        setExplorerResetKey(k => k + 1)
+        setCalMountKey(k => k + 1)
+        setActiveTab('calendar')
+        localStorage.setItem(ACTIVE_TAB_KEY, 'calendar')
+      }, IDLE_RESET_MS)
+    }
+    const events = ['pointerdown', 'keydown', 'touchstart', 'wheel'] as const
+    events.forEach(ev => window.addEventListener(ev, resetIdle))
+    resetIdle()
+    return () => {
+      clearTimeout(timer)
+      events.forEach(ev => window.removeEventListener(ev, resetIdle))
+    }
+  }, [])
 
   // Auth zuerst prüfen
   useEffect(() => { checkAuth() }, [checkAuth])
@@ -131,8 +192,16 @@ export default function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         role={role === 'admin' ? 'admin' : 'user'}
       />
+      {usbToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-xl shadow-2xl border border-white/10 bg-gray-900 text-white text-sm font-semibold">
+          <HardDrive size={17} className="shrink-0" style={{ color: 'var(--accent)' }} />
+          {usbToast}
+        </div>
+      )}
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar sseMsg={sseMsg} activeTab={activeTab} onTabChange={switchTab} />
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <Sidebar sseMsg={sseMsg} activeTab={activeTab} onTabChange={switchTab} />
+        </ErrorBoundary>
         <main className="flex-1 overflow-hidden relative">
           {/* CalendarView — nur gemountet wenn aktiv, Animation via key */}
           {activeTab === 'calendar' && (

@@ -42,12 +42,21 @@ func WithAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// Setup noch nicht abgeschlossen?
+		// Setup noch nicht abgeschlossen? Geht auch im Kiosk vor — ohne eingerichteten
+		// Admin/Audioverzeichnis gibt es nichts sinnvoll anzuzeigen.
 		n, _ := db.CountUsers()
 		if n == 0 {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]bool{"setup": true})
+			return
+		}
+
+		// Kiosk-Cookie: Login überspringen, aber als Nicht-Admin behandeln
+		// (kein Zugriff auf Rename/Benutzerverwaltung/Einstellungen-Aktionen).
+		if _, err := r.Cookie("fs_kiosk"); err == nil {
+			ctx := context.WithValue(r.Context(), ctxKey{}, &db.User{Role: "user"})
+			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
 
