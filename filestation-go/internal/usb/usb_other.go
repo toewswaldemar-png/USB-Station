@@ -11,7 +11,7 @@ import (
 // GetDrives listet USB-Laufwerke unter Linux/macOS auf.
 func GetDrives() []Drive {
 	patterns := []string{"/media/*/*", "/run/media/*/*", "/mnt/usb*"}
-	var drives []Drive
+	drives := []Drive{}
 	for _, pattern := range patterns {
 		matches, _ := filepath.Glob(pattern)
 		for _, p := range matches {

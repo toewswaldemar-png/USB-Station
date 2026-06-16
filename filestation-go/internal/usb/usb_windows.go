@@ -23,7 +23,7 @@ const driveRemovable = 2
 // GetDrives listet alle USB/Wechsellaufwerke unter Windows auf.
 func GetDrives() []Drive {
 	bitmask, _, _ := getLogicalDrives.Call()
-	var drives []Drive
+	drives := []Drive{}
 
 	for i := 0; i < 26; i++ {
 		if bitmask&(1<<uint(i)) == 0 {

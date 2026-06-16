@@ -16,7 +16,7 @@ export function useUsbDrives(sseMessage: { data: string }) {
     const msg = sseMessage.data
     if (!msg.startsWith('usb:')) return
     try {
-      const d = JSON.parse(msg.slice(4)) as UsbDrive[]
+      const d = (JSON.parse(msg.slice(4)) as UsbDrive[] | null) ?? []
       setDrives(d)
       if (selected && !d.find(x => x.path === selected.path)) setSelected(null)
     } catch {}
