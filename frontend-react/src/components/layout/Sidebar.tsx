@@ -37,7 +37,10 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
   })
 
   return (
-    <aside className="w-64 shrink-0 flex flex-col bg-gray-50 overflow-hidden shadow-[2px_0_12px_rgba(0,0,0,0.06)] z-10">
+    <aside
+      className="w-64 shrink-0 flex flex-col bg-gray-50 overflow-hidden shadow-[2px_0_12px_rgba(0,0,0,0.06)] z-10"
+      style={{ transform: 'translateZ(0)' }}
+    >
 
       {/* Tab-Umschalter — Segmented Control */}
       <div className="flex items-center px-3 py-3 shrink-0">
@@ -75,7 +78,7 @@ export default function Sidebar({ sseMsg, activeTab, onTabChange }: Props) {
         <CopyProgress sseMsg={sseMsg} selectedDrive={selected} />
         <div className="relative flex-1 min-h-0">
           <div ref={innerRef} onScroll={checkScroll} className="overflow-y-auto no-scrollbar h-full">
-            <SelectionPanel emptyLabel="Einträge im Kalender auswählen" />
+            <SelectionPanel emptyLabel={activeTab === 'calendar' ? 'Einträge im Kalender auswählen' : 'Dateien im Explorer auswählen'} />
           </div>
           {showArrow && (
             <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none flex items-end justify-center pb-1"
