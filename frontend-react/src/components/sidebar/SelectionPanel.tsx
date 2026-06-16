@@ -3,13 +3,8 @@ import { X } from 'lucide-react'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useFilesStore } from '@/stores/filesStore'
 import { groupKey } from '@/lib/groupKey'
+import { stripDate, splitChipLabel } from '@/lib/chipLabel'
 import type { AudioFile } from '@/types'
-
-const DATE_RE = /^(\d{4}-\d{2}-\d{2}|\d{8}|\d{1,2}\.\d{1,2}\.\d{4})\s*/
-
-function stripDate(s: string) {
-  return s.replace(DATE_RE, '').replace(DATE_RE, '').trim() || s
-}
 
 export default function SelectionPanel({ emptyLabel }: { emptyLabel?: string }) {
   const { selectedFiles, selectedFilesMeta, toggleFile } = useSelectionStore()
@@ -79,9 +74,17 @@ export default function SelectionPanel({ emptyLabel }: { emptyLabel?: string }) 
               }}
               onClick={() => setOpenKey(isOpen ? null : key)}
             >
-              <span className={`flex-1 text-sm font-semibold truncate transition-colors ${allSel ? '' : 'text-gray-800'}`}
+              <span className={`flex-1 min-w-0 leading-tight transition-colors ${allSel ? '' : 'text-gray-800'}`}
                 style={allSel ? { color: 'var(--accent)' } : {}}>
-                {stripDate(key)}
+                {(() => {
+                  const { title, subtitle } = splitChipLabel(key)
+                  return (
+                    <>
+                      <span className="block text-sm font-semibold truncate">{title}</span>
+                      {subtitle && <span className="block text-[0.85em] font-normal opacity-70 truncate">{subtitle}</span>}
+                    </>
+                  )
+                })()}
               </span>
               <span
                 className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 cursor-pointer active:scale-90 transition-all text-white"
