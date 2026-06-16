@@ -375,6 +375,10 @@ func Save(w http.ResponseWriter, r *http.Request) {
 // ── /api/rename ───────────────────────────────────────────────────────────────
 
 func Rename(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 	var req struct {
 		OldPath string `json:"old_path"`
 		NewName string `json:"new_name"`
@@ -711,7 +715,7 @@ func SearchFiles(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, []db.AudioFile{})
 		return
 	}
-	files, err := db.Search(q, 50)
+	files, err := db.Search(q, 100)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

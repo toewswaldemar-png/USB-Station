@@ -196,6 +196,6 @@ Go + `go-webview2` (no CGO). Reads `config.json` (key `server_url`) from its wor
 | GET | `/api/pick-folder` | Native OS folder picker dialog (Windows: IFileDialog; other: no-op) |
 | POST | `/api/client-command` | Send `fullscreen`/`reload`/`exit` command to kiosk client via SSE |
 | GET | `/api/verse` | Daily Bible verse |
-| GET | `/api/search?q=` | Full-text search over indexed files (min 2 chars, max 50 results) |
+| GET | `/api/search?q=` | Full-text search over indexed files (min 2 chars, max 100 results) |
 | GET | `/api/list-recursive?path=` | Recursive WebDAV listing; only cloud-folder paths supported |
 | GET | `/api/capabilities` | Server feature flags: `{"pick_folder": bool}` |
