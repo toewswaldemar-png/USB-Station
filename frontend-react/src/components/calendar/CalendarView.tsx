@@ -42,7 +42,6 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
   const [year, setYear] = useState(() => loadCalMonth().year)
   const [month, setMonth] = useState(() => loadCalMonth().month)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [slideDir, setSlideDir] = useState<'next' | 'prev'>('next')
   const navigated = useRef(false)
   const settings = useUISettingsStore(s => s.settings)
   const filesByYearMonth = useFilesStore(s => s.filesByYearMonth)
@@ -90,13 +89,11 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
 
   function goPrev() {
     navigated.current = true
-    setSlideDir('prev')
     if (month === 0) { setYear(y => y - 1); setMonth(11) }
     else setMonth(m => m - 1)
   }
   function goNext() {
     navigated.current = true
-    setSlideDir('next')
     if (month === 11) { setYear(y => y + 1); setMonth(0) }
     else setMonth(m => m + 1)
   }
@@ -104,7 +101,6 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
     const toY = today.getFullYear(), toM = today.getMonth()
     if (toY === year && toM === month) return
     navigated.current = true
-    setSlideDir(toY > year || (toY === year && toM > month) ? 'next' : 'prev')
     setYear(toY); setMonth(toM)
   }
 
