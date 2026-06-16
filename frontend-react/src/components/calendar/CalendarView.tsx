@@ -255,6 +255,7 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
                     todayStyle={settings.todayStyle} groups={dayGroups}
                     entrySize={settings.entrySize} compact={false} bold={false}
                     chipStyle={settings.chipStyle}
+                    categoryColors={settings.categoryColors ?? {}}
                     amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
                     onToggleGroup={toggleGroup}
                   />
@@ -285,6 +286,7 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
                   compact={false}
                   bold={false}
                   chipStyle={settings.chipStyle}
+                  categoryColors={settings.categoryColors ?? {}}
                   amPmSplit={settings.amPmSplit}
                   groupStatus={groupStatus}
                   onToggleGroup={toggleGroup}
@@ -305,6 +307,7 @@ export default function CalendarView({ sseMsg }: { sseMsg?: string }) {
                     todayStyle={settings.todayStyle} groups={dayGroups}
                     entrySize={settings.entrySize} compact={false} bold={false}
                     chipStyle={settings.chipStyle}
+                    categoryColors={settings.categoryColors ?? {}}
                     amPmSplit={settings.amPmSplit} groupStatus={groupStatus}
                     onToggleGroup={toggleGroup}
                   />

@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, Maximize, Minimize, RotateCcw, Power, AlertTriangle, ChevronDown } from 'lucide-react'
 import { useUISettingsStore } from '@/stores/uiSettingsStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useFilesStore } from '@/stores/filesStore'
 import { useUserStore } from '@/stores/userStore'
 import { COLOR_PRESETS } from '@/types'
+import { categoryOf, getCategoryColor } from '@/lib/categoryColor'
 import UserManagement from '@/components/settings/UserManagement'
 
 const FONTS = [
@@ -87,6 +88,8 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
   const { settings, update } = useUISettingsStore()
   const { config, save: saveConfig } = useConfigStore()
   const refreshFiles = useFilesStore(s => s.refreshFiles)
+  const allFiles = useFilesStore(s => s.allFiles)
+  const categories = useMemo(() => [...new Set(allFiles.map(f => categoryOf(f.path)))].sort(), [allFiles])
   const { role, username } = useUserStore()
   const [isFs, setIsFs] = useState(false)
   const [picking, setPicking] = useState(false)
@@ -292,13 +295,6 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
                   onChange={v => update({ chipStyle: v as 'bar' | 'flat' })}
                 />
               </Field>
-              <Field label="Eintraggröße">
-                <Seg
-                  value={settings.entrySize}
-                  options={[{ label: 'Klein', value: 'sm' }, { label: 'Mittel', value: 'md' }, { label: 'Groß', value: 'lg' }]}
-                  onChange={v => update({ entrySize: v as 'sm' | 'md' | 'lg' })}
-                />
-              </Field>
               <Field label="Animation">
                 <Seg
                   value={settings.calAnimation}
@@ -313,6 +309,35 @@ export default function SettingsView({ onClose, sseMsg }: { onClose: () => void;
 
 <ToggleField label="AM/PM-Aufteilung" checked={settings.amPmSplit} onChange={v => update({ amPmSplit: v })} />
             </Card>
+
+            {categories.length > 0 && (
+              <Card title="Themen-Farben">
+                <p className="text-xs text-gray-400">
+                  Kalender-Chips werden automatisch nach Ober­ordner einge­färbt. Hier lässt sich die Farbe pro Thema überschreiben.
+                </p>
+                <div className="space-y-2.5">
+                  {categories.map(cat => {
+                    const current = getCategoryColor(cat, settings.categoryColors ?? {})
+                    return (
+                      <div key={cat} className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-gray-700 truncate">{cat}</span>
+                        <div className="flex gap-1.5 shrink-0">
+                          {COLOR_PRESETS.map((p, i) => (
+                            <button
+                              key={p.name}
+                              onClick={() => update({ categoryColors: { ...(settings.categoryColors ?? {}), [cat]: i } })}
+                              className={`w-6 h-6 rounded-full transition-all ${current.name === p.name ? 'scale-110 ring-2 ring-offset-1' : 'hover:scale-105'}`}
+                              style={{ background: p.accent, '--tw-ring-color': p.accent } as React.CSSProperties}
+                              title={p.name}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+            )}
 
             <Card title="Audioverzeichnis">
               <div className="flex gap-2">

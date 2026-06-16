@@ -11,6 +11,7 @@ export interface UISettings {
   swipeThreshold: number
   amPmSplit: boolean
   chipStyle: 'bar' | 'flat'
+  categoryColors: Record<string, number>
   // Explorer
   sortBy: 'name' | 'date'
   sortDir: 'asc' | 'desc'
@@ -30,6 +31,7 @@ const DEFAULTS: UISettings = {
   sortBy: 'date',
   sortDir: 'desc',
   chipStyle: 'bar',
+  categoryColors: {},
   hiddenCloudFolders: [],
   folderSort: {},
 }
