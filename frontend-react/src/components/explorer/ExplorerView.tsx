@@ -78,10 +78,12 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   const [localFolderSort, setLocalFolderSort] = useState<Record<string, { by: SortBy; dir: SortDir }>>({})
   const [viewerFile, setViewerFile] = useState<{ path: string; name: string; type: Exclude<FileType, 'other'> } | null>(null)
   const [globalResults, setGlobalResults] = useState<AudioFile[]>([])
-  const [searchFocused, setSearchFocused] = useState(false)
 
   const searchRef = useRef<HTMLInputElement>(null)
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null)
+  const [typeaheadQuery, setTypeaheadQuery] = useState('')
+  const [typeaheadIndex, setTypeaheadIndex] = useState<number | null>(null)
+  const typeaheadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isFirstReset = useRef(true)
   useLayoutEffect(() => {
@@ -100,6 +102,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
 
   const isCloud = !!webdavUrl && path[0] === cloudFolder
   const currentFolder = path.join('/')
+  const isSearching = search.length >= 2
   const sort: { by: SortBy; dir: SortDir } =
     localFolderSort[currentFolder]
     ?? settings.folderSort?.[currentFolder]
@@ -222,7 +225,6 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     type Result = { rows: Row[]; folderFilesMap: Map<string, AudioFile[]>; scopeFiles: AudioFile[] }
     if (dirEntries === null) return { rows: [], folderFilesMap: new Map(), scopeFiles: [] } as Result
 
-    const searchLower = search.toLowerCase()
     const prefix = currentFolder ? currentFolder + '/' : ''
 
     // Virtuellen "Cloud"-Ordner am Root injizieren; lokalen Ordner gleichen Namens ausblenden (verhindert Duplikat + Stale-Cache-Bug)
@@ -283,7 +285,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
       }
     }
 
-    const filtered = effectiveDirEntries.filter(e => !search || e.name.toLowerCase().includes(searchLower))
+    const filtered = effectiveDirEntries
     const mul = sort.dir === 'asc' ? 1 : -1
     const rows: Row[] = [
       ...filtered.filter(e => e.is_dir)
@@ -302,7 +304,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     ]
 
     return { rows, folderFilesMap, scopeFiles } as Result
-  }, [dirEntries, allFiles, currentFolder, path, search, sort, cloudFolderFiles, cloudFolder, webdavConfigured, isCloud, settings.hiddenCloudFolders])
+  }, [dirEntries, allFiles, currentFolder, path, sort, cloudFolderFiles, cloudFolder, webdavConfigured, isCloud, settings.hiddenCloudFolders])
 
   const nameColWidth = useMemo(() => {
     if (!rows.length) return undefined
@@ -376,6 +378,54 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     return () => clearTimeout(t)
   }, [highlightedPath])
 
+  // Type-Ahead: Tippen ohne Fokus auf einem Eingabefeld springt zum passenden Eintrag im aktuellen Ordner.
+  // ESC bricht ab. Greift nicht während globaler Suche oder offenem Datei-Viewer.
+  const rowsRef = useRef(rows)
+  rowsRef.current = rows
+  const virtualizerRef = useRef(virtualizer)
+  virtualizerRef.current = virtualizer
+
+  useEffect(() => {
+    if (isMobile || isSearching || viewerFile) return
+    function handler(e: KeyboardEvent) {
+      const active = document.activeElement as HTMLElement | null
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+
+      if (e.key === 'Escape') {
+        if (typeaheadQuery) { setTypeaheadQuery(''); setTypeaheadIndex(null) }
+        return
+      }
+      if (e.key.length !== 1) return
+
+      const currentRows = rowsRef.current
+      const label = (r: Row) => r.type === 'dir' ? r.name : (r.file.title || r.file.path.split('/').pop() || '')
+
+      const next = (typeaheadQuery + e.key).toLowerCase()
+      let idx = currentRows.findIndex(r => label(r).toLowerCase().startsWith(next))
+      if (idx === -1) idx = currentRows.findIndex(r => label(r).toLowerCase().includes(next))
+
+      // Kein Treffer für die erweiterte Eingabe → Tastendruck ignorieren, bisherige Markierung bleibt stehen.
+      if (idx === -1) return
+
+      e.preventDefault()
+      setTypeaheadQuery(next)
+      setTypeaheadIndex(idx)
+      virtualizerRef.current.scrollToIndex(idx, { align: 'center' })
+
+      if (typeaheadTimer.current) clearTimeout(typeaheadTimer.current)
+      typeaheadTimer.current = setTimeout(() => { setTypeaheadQuery(''); setTypeaheadIndex(null) }, 3000)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isMobile, isSearching, viewerFile, typeaheadQuery])
+
+  // Ordner gewechselt → Type-Ahead-Status zurücksetzen
+  useEffect(() => {
+    setTypeaheadQuery('')
+    setTypeaheadIndex(null)
+  }, [currentFolder])
+
   function toggleSort(by: SortBy) {
     const next = sort.by === by ? { by, dir: sort.dir === 'asc' ? 'desc' as const : 'asc' as const } : { by, dir: 'asc' as const }
     if (role === 'admin') {
@@ -386,6 +436,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   }
 
   function startRename(name: string) {
+    if (role !== 'admin') return
     setRenaming(name)
     const stem = name.includes('.') ? name.slice(0, name.lastIndexOf('.')) : name
     setRenameVal(stem)
@@ -538,67 +589,78 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
             ))}
           </div>
         )}
-        {/* Suchfeld mit ✕, History-Dropdown und globalen Ergebnissen */}
+        {/* Suchfeld — Ergebnisse ersetzen ab 2 Zeichen die Ordneransicht unten */}
         <div className="relative">
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              ref={searchRef}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
-              onKeyDown={e => {
-                if (e.key === 'Escape') { setSearch(''); searchRef.current?.blur() }
-
-              }}
-              placeholder={isMobile ? 'Suchen…' : 'Suchen… (Strg+F)'}
-              className={`border border-gray-200 rounded-full pl-7 pr-7 text-sm h-9 focus:outline-none focus:ring-2 focus:border-transparent bg-white ${isMobile ? 'w-32' : 'w-52'}`}
-              style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
-            />
-            {search && (
-              <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                onMouseDown={e => { e.preventDefault(); setSearch('') }}
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-
-          {/* Globale Suchergebnisse — erscheint nach Debounce ab 2 Zeichen */}
-          {searchFocused && search.length >= 2 && globalResults.length > 0 && (
-            <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-20 w-96 max-h-72 overflow-y-auto">
-              <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider sticky top-0 bg-white border-b border-gray-50">
-                {globalResults.length} Treffer gesamt
-              </p>
-              {globalResults.map(gf => {
-                const gft = getFileType(gf.path.split('/').pop() || '')
-                const GIcon = gft === 'image' ? Image : gft === 'pdf' ? FileText : gft === 'audio' ? Music : gft === 'text' ? AlignLeft : File
-                const gColor = gft === 'audio' ? 'text-purple-400' : gft === 'image' ? 'text-green-500' : gft === 'pdf' ? 'text-red-500' : gft === 'text' ? 'text-sky-400' : 'text-gray-400'
-                const folderParts = gf.path.split('/').slice(0, -1)
-                return (
-                  <div key={gf.path} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                    onMouseDown={() => {
-                      setSearch('')
-                      setHighlightedPath(gf.path)
-                      pushPath(folderParts)
-                    }}>
-                    <GIcon size={14} className={`shrink-0 ${gColor}`} />
-                    <div className="min-w-0">
-                      <div className="text-sm text-gray-900 truncate">
-                        <Highlight text={gf.title || gf.path.split('/').pop() || ''} query={search} />
-                      </div>
-                      <div className="text-[11px] text-gray-400 truncate">{folderParts.join(' › ')}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setSearch(''); searchRef.current?.blur() }
+            }}
+            placeholder={isMobile ? 'Suchen…' : 'Suchen… (Strg+F)'}
+            className={`border border-gray-200 rounded-full pl-7 pr-7 text-sm h-9 focus:outline-none focus:ring-2 focus:border-transparent bg-white ${isMobile ? 'w-32' : 'w-52'}`}
+            style={{ '--tw-ring-color': 'var(--accent)' } as React.CSSProperties}
+          />
+          {search && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              onMouseDown={e => { e.preventDefault(); setSearch('') }}
+            >
+              <X size={13} />
+            </button>
           )}
         </div>
       </div>
 
+      {isSearching ? (
+      <>
+      {/* Suchergebnisse — ersetzt die Ordneransicht, statt in einem Dropdown zu schweben */}
+      <div className="flex items-center justify-between border-b border-gray-100 bg-white shrink-0 px-4 py-2 text-sm">
+        <span className="font-semibold text-gray-700">
+          {globalResults.length} Treffer für „{search}“
+        </span>
+        <button onClick={() => setSearch('')} className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+          Suche schließen ✕
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
+        {globalResults.length === 0 && (
+          <div className="flex items-center justify-center h-24 text-sm text-gray-400">
+            Keine Treffer für „{search}“
+          </div>
+        )}
+        {globalResults.map(gf => {
+          const gft = getFileType(gf.path.split('/').pop() || '')
+          const GIcon = gft === 'image' ? Image : gft === 'pdf' ? FileText : gft === 'audio' ? Music : gft === 'text' ? AlignLeft : File
+          const gColor = gft === 'audio' ? 'text-purple-400' : gft === 'image' ? 'text-green-500' : gft === 'pdf' ? 'text-red-500' : gft === 'text' ? 'text-sky-400' : 'text-gray-400'
+          const folderParts = gf.path.split('/').slice(0, -1)
+          return (
+            <div
+              key={gf.path}
+              className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
+              onClick={() => {
+                setSearch('')
+                setHighlightedPath(gf.path)
+                pushPath(folderParts)
+              }}
+            >
+              <GIcon size={16} className={`shrink-0 ${gColor}`} />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm text-gray-900 truncate">
+                  <Highlight text={gf.title || gf.path.split('/').pop() || ''} query={search} />
+                </div>
+                <div className="text-[11px] text-gray-400 truncate">{folderParts.join(' › ')}</div>
+              </div>
+              <div className="text-xs text-gray-400 shrink-0">{fmtBytes(gf.size)}</div>
+            </div>
+          )
+        })}
+      </div>
+      </>
+      ) : (
+      <>
       {/* Tabellen-Header */}
       <div className="flex items-center border-b border-gray-100 bg-white shrink-0 text-sm font-semibold text-gray-500 tracking-wide select-none">
         <label className={`${isMobile ? 'hidden' : 'w-8'} flex items-center justify-center cursor-pointer`}>
@@ -691,7 +753,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
         }}
       >
         {/* Leerer Ordner */}
-        {dirEntries !== null && rows.length === 0 && !search && (
+        {dirEntries !== null && rows.length === 0 && (
           <div className="flex items-center justify-center h-24 text-sm text-gray-400">
             Keine Dateien vorhanden
           </div>
@@ -721,9 +783,11 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
           {virtualizer.getVirtualItems().map(vi => {
             const row = rows[vi.index]
             if (!row) return null
+            const isTypeaheadMatch = typeaheadIndex === vi.index
 
             if (row.type === 'dir') {
               const folderFiles = folderFilesMap.get(row.name) ?? []
+              const folderSize = folderFiles.reduce((s, f) => s + f.size, 0)
               const folderPath = currentFolder ? `${currentFolder}/${row.name}` : row.name
               const isLoading = loadingFolders.has(folderPath)
               // Cloud-Ordner zeigt ✓ nur wenn vollständig geladen (direkt via list-recursive).
@@ -734,8 +798,11 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
               return (
                 <div
                   key={vi.key}
-                  style={{ position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px' }}
-                  className="flex items-center border-b border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer select-none"
+                  style={{
+                    position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px',
+                    boxShadow: isTypeaheadMatch ? 'inset 0 0 0 2px var(--accent)' : undefined,
+                  }}
+                  className="flex items-center border-b border-gray-100 hover:bg-gray-100 cursor-pointer select-none"
                   onClick={() => pushPath([...path, row.name])}
                 >
                   <label className={`${isMobile ? 'hidden' : 'w-8'} h-full flex items-center justify-center cursor-pointer`} onClick={e => e.stopPropagation()}>
@@ -767,13 +834,13 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
                     {(isCloud || (row.name === cloudFolder && webdavConfigured))
                       ? <Cloud size={isMobile ? 18 : 15} className="shrink-0 text-blue-400"/>
                       : <Folder size={isMobile ? 18 : 15} className="shrink-0 text-yellow-400"/>}
-                    <span className="text-gray-900 truncate"><Highlight text={row.name} query={search} /></span>
+                    <span className="text-gray-900 truncate"><Highlight text={row.name} query={isTypeaheadMatch ? typeaheadQuery : search} /></span>
                   </div>
                   {!isMobile && (
                     <>
                       <div style={{ width: colW('date', 155) }} className="px-2 text-sm text-gray-600 shrink-0">{row.modTime ? formatDate(row.modTime.slice(0, 10)) : ''}</div>
-                      <div style={{ width: colW('size', 80) }} className={`px-2 text-sm shrink-0 ${folderFiles.length > 0 ? 'text-gray-600' : 'text-gray-300'}`}>
-                        {folderFiles.length > 0 ? fmtBytes(folderFiles.reduce((s, f) => s + f.size, 0)) : '–'}
+                      <div style={{ width: colW('size', 80) }} className={`px-2 text-sm shrink-0 ${folderSize > 0 ? 'text-gray-600' : 'text-gray-300'}`}>
+                        {folderSize > 0 ? fmtBytes(folderSize) : '–'}
                       </div>
                       <div className="flex-1" />
                     </>
@@ -784,7 +851,6 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
 
             const { file } = row
             const sel = selectedFiles.has(file.path)
-            const isHighlighted = file.path === highlightedPath
             const isPlaying = file.path === currentTrackPath
             const ft = getFileType(file.path.split('/').pop() || file.title || '')
             const FileIcon = ft === 'image' ? Image : ft === 'pdf' ? FileText : ft === 'audio' ? Music : ft === 'text' ? AlignLeft : File
@@ -808,11 +874,11 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
                 key={vi.key}
                 style={{
                   position: 'absolute', top: vi.start + 'px', width: '100%', height: vi.size + 'px',
-                  background: isPlaying ? 'var(--accent-l)' : isHighlighted ? 'var(--accent-l)' : sel ? 'var(--accent-xl)' : undefined,
+                  background: isPlaying ? 'var(--accent-l)' : sel ? 'var(--accent-xl)' : undefined,
                   borderLeft: isPlaying ? '3px solid var(--accent)' : undefined,
-                  transition: isHighlighted ? 'background 2.5s ease-out' : undefined,
+                  boxShadow: isTypeaheadMatch ? 'inset 0 0 0 2px var(--accent)' : undefined,
                 }}
-                className={`flex items-center border-b border-gray-100 hover:bg-gray-100 transition-colors select-none ${isViewable ? 'cursor-pointer' : ''}`}
+                className={`flex items-center border-b border-gray-100 hover:bg-gray-100 select-none ${isViewable ? 'cursor-pointer' : ''}`}
                 onClick={isViewable ? handleFileClick : undefined}
                 onKeyDown={e => {
                   if (e.key === 'F2') { startRename(file.path.split('/').pop() ?? '') }
@@ -849,7 +915,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
                       className="border border-[var(--accent)] rounded-md px-1.5 text-sm w-full focus:outline-none"
                     />
                   ) : (
-                    <span className={`truncate ${isPlaying ? 'font-semibold' : ''}`} style={isPlaying ? { color: 'var(--accent)' } : undefined}><Highlight text={file.title || file.path.split('/').pop() || ''} query={search} /></span>
+                    <span className={`truncate ${isPlaying ? 'font-semibold' : ''}`} style={isPlaying ? { color: 'var(--accent)' } : undefined}><Highlight text={file.title || file.path.split('/').pop() || ''} query={isTypeaheadMatch ? typeaheadQuery : search} /></span>
                   )}
                 </div>
                 {!isMobile && (
@@ -869,6 +935,8 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
         </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Rubber-Band — ausgeklammert */}
 
