@@ -110,9 +110,17 @@ func propfind(baseURL, davPath, user, pw string) ([]Item, error) {
 	if resp.StatusCode == 403 {
 		return nil, fmt.Errorf("WebDAV: Zugriff verweigert (403) – App-Passwort verwenden")
 	}
+	if resp.StatusCode == 429 {
+		return nil, fmt.Errorf("WebDAV: Zu viele Anfragen (429) – kurz warten und erneut versuchen")
+	}
+	if resp.StatusCode == 404 {
+		return nil, fmt.Errorf("WebDAV: Ordner nicht gefunden (404) – Pfad prüfen")
+	}
+	if resp.StatusCode == 503 {
+		return nil, fmt.Errorf("WebDAV: Server vorübergehend nicht verfügbar (503)")
+	}
 	if resp.StatusCode != 207 && resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("WebDAV-Fehler %d: %s", resp.StatusCode, string(body[:min(200, len(body))]))
+		return nil, fmt.Errorf("WebDAV: Verbindungsfehler (HTTP %d)", resp.StatusCode)
 	}
 
 	var ms multiStatus
