@@ -220,22 +220,43 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     } catch {}
   }, [cloudFolderFiles, completedCloudFolders, webdavConfigured])
 
-  // Hintergrund-Prefetch: jeden sichtbaren Cloud-Unterordner einzeln laden.
-  // Ordnergrößen erscheinen nacheinander; Checkboxen sind danach sofort reaktionsfähig.
-  // Max. 3 parallele Requests — jeder Unterordner bleibt sicher unter dem 500-Dir-Limit.
+  // Hintergrund-Prefetch für Cloud-Unterordner — zwei unabhängige Tracks:
+  //
+  // Track 1 – Navigate-Cache (fetchDir / /api/open):
+  //   Einzelner PROPFIND pro Unterordner → kein 500-Dir-Limit.
+  //   Befüllt _cache[fp] mit den Direktkindern → navigate() liefert sofort aus dem Cache.
+  //
+  // Track 2 – Dateiauswahl-Cache (fetchCloudFolder / /api/list-recursive):
+  //   Rekursiver PROPFIND → Ordnergrößen + Dateiliste für Checkbox-Selektion.
+  //   Kann bei großen Ordnern (>500 Verzeichnisse) partiell sein — für Navigation
+  //   kein Problem, da Track 1 bereits korrekte Direktkinder geliefert hat.
   useEffect(() => {
     if (!isCloud || !dirEntries) return
-    const pending = dirEntries
-      .filter(e => e.is_dir)
+    const dirs = dirEntries.filter(e => e.is_dir)
+    if (dirs.length === 0) return
+
+    // Track 1: Navigate-Cache — fetchDir für jeden sichtbaren Unterordner.
+    let navRunning = 0, navIdx = 0
+    function nextNav() {
+      while (navRunning < 3 && navIdx < dirs.length) {
+        const e = dirs[navIdx++]
+        const fp = `${currentFolder}/${e.name}`
+        if (getCachedDir(fp)) continue  // bereits im Cache, Slot nicht blockieren
+        navRunning++
+        fetchDir(fp).finally(() => { navRunning--; nextNav() })
+      }
+    }
+    nextNav()
+
+    // Track 2: Dateiauswahl-Cache — fetchCloudFolder (list-recursive) pro Unterordner.
+    const pending = dirs
       .map(e => `${currentFolder}/${e.name}`)
       .filter(fp => !completedCloudFolders.has(fp) && !prefetchingFolders.current.has(fp))
     if (pending.length === 0) return
 
-    const PARALLEL = 3
-    let running = 0
-    let idx = 0
+    let running = 0, idx = 0
     function next() {
-      while (running < PARALLEL && idx < pending.length) {
+      while (running < 3 && idx < pending.length) {
         const fp = pending[idx++]
         prefetchingFolders.current.add(fp)
         running++
