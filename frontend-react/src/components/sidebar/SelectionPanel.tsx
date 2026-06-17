@@ -77,7 +77,8 @@ export default function SelectionPanel({ emptyLabel }: { emptyLabel?: string }) 
               <span className={`flex-1 min-w-0 leading-tight transition-colors ${allSel ? '' : 'text-gray-800'}`}
                 style={allSel ? { color: 'var(--accent)' } : {}}>
                 {(() => {
-                  const { title, subtitle } = splitChipLabel(key)
+                  const displayKey = key.includes('/') ? (key.split('/').pop() || key) : key
+                  const { title, subtitle } = splitChipLabel(displayKey)
                   return (
                     <>
                       <span className="block text-sm font-semibold truncate">{title}</span>
