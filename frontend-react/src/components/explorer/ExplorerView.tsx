@@ -9,7 +9,7 @@ import { useUserStore } from '@/stores/userStore'
 import { usePlayerStore } from '@/stores/playerStore'
 import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
-import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs } from './explorerCache'
+import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs, seedCloudDirCache } from './explorerCache'
 import type { DirEntry } from './explorerCache'
 import FileViewer from './FileViewer'
 import { getFileType, type FileType } from '@/lib/fileType'
@@ -51,7 +51,7 @@ interface ExplorerViewProps {
 
 export default function ExplorerView({ isMobile = false, resetKey }: ExplorerViewProps) {
   const allFiles = useFilesStore(s => s.allFiles)
-  const { selectedFiles, toggleFile, registerFileMeta } = useSelectionStore()
+  const { selectedFiles, toggleFile, addFiles, registerFileMeta } = useSelectionStore()
   const webdavFolderRaw = useConfigStore(s => s.config.webdav_folder)
   const cloudFolder = webdavFolderRaw || 'Cloud'
   const webdavUrl = useConfigStore(s => s.config.webdav_url)
@@ -70,10 +70,22 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   const [dirEntries, setDirEntries] = useState<DirEntry[] | null>(() => getCachedDir(loadSavedPath().join('/')))
   const [colWidths, setColWidths] = useState<Record<string, number>>(loadColWidths)
   const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set())
-  const [cloudFolderFiles, setCloudFolderFiles] = useState<Map<string, AudioFile[]>>(new Map())
+  const [cloudFolderFiles, setCloudFolderFiles] = useState<Map<string, AudioFile[]>>(() => {
+    try {
+      const raw = sessionStorage.getItem('fs_cloud_cache')
+      if (raw) return new Map(JSON.parse(raw).files as [string, AudioFile[]][])
+    } catch {}
+    return new Map()
+  })
   // Direkt via list-recursive vollständig geladene Ordner. Nur diese dürfen allSel=true zeigen.
   // Elternordner mit Merge-Teildaten zeigen – (someSel), bis sie selbst vollständig geladen werden.
-  const [completedCloudFolders, setCompletedCloudFolders] = useState<Set<string>>(new Set())
+  const [completedCloudFolders, setCompletedCloudFolders] = useState<Set<string>>(() => {
+    try {
+      const raw = sessionStorage.getItem('fs_cloud_cache')
+      if (raw) return new Set(JSON.parse(raw).completed as string[])
+    } catch {}
+    return new Set()
+  })
   // Nicht-Admins können lokal sortieren (Session, kein Persist), Admins speichern global.
   const [localFolderSort, setLocalFolderSort] = useState<Record<string, { by: SortBy; dir: SortDir }>>({})
   const [viewerFile, setViewerFile] = useState<{ path: string; name: string; type: Exclude<FileType, 'other'> } | null>(null)
@@ -84,6 +96,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   const [typeaheadQuery, setTypeaheadQuery] = useState('')
   const [typeaheadIndex, setTypeaheadIndex] = useState<number | null>(null)
   const typeaheadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prefetchingFolders = useRef(new Set<string>())
 
   const isFirstReset = useRef(true)
   useLayoutEffect(() => {
@@ -194,6 +207,66 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     if (!dirEntries || isCloud) return
     prefetchSubdirs(currentFolder, dirEntries)
   }, [dirEntries, currentFolder, isCloud])
+
+  // SessionStorage-Cache: Cloud-Baumstruktur nach Reload wiederherstellen.
+  useEffect(() => {
+    if (!webdavConfigured) return
+    if (cloudFolderFiles.size === 0 && completedCloudFolders.size === 0) return
+    try {
+      sessionStorage.setItem('fs_cloud_cache', JSON.stringify({
+        files: Array.from(cloudFolderFiles.entries()),
+        completed: Array.from(completedCloudFolders),
+      }))
+    } catch {}
+  }, [cloudFolderFiles, completedCloudFolders, webdavConfigured])
+
+  // Hintergrund-Prefetch für Cloud-Unterordner — zwei unabhängige Tracks:
+  //
+  // Track 1 – Navigate-Cache (fetchDir / /api/open):
+  //   Einzelner PROPFIND pro Unterordner → kein 500-Dir-Limit.
+  //   Befüllt _cache[fp] mit den Direktkindern → navigate() liefert sofort aus dem Cache.
+  //
+  // Track 2 – Dateiauswahl-Cache (fetchCloudFolder / /api/list-recursive):
+  //   Rekursiver PROPFIND → Ordnergrößen + Dateiliste für Checkbox-Selektion.
+  //   Kann bei großen Ordnern (>500 Verzeichnisse) partiell sein — für Navigation
+  //   kein Problem, da Track 1 bereits korrekte Direktkinder geliefert hat.
+  useEffect(() => {
+    if (!isCloud || !dirEntries) return
+    const dirs = dirEntries.filter(e => e.is_dir)
+    if (dirs.length === 0) return
+
+    // Track 1: Navigate-Cache — fetchDir für jeden sichtbaren Unterordner.
+    let navRunning = 0, navIdx = 0
+    function nextNav() {
+      while (navRunning < 3 && navIdx < dirs.length) {
+        const e = dirs[navIdx++]
+        const fp = `${currentFolder}/${e.name}`
+        if (getCachedDir(fp)) continue  // bereits im Cache, Slot nicht blockieren
+        navRunning++
+        fetchDir(fp).finally(() => { navRunning--; nextNav() })
+      }
+    }
+    nextNav()
+
+    // Track 2: Dateiauswahl-Cache — fetchCloudFolder (list-recursive) pro Unterordner.
+    const pending = dirs
+      .map(e => `${currentFolder}/${e.name}`)
+      .filter(fp => !completedCloudFolders.has(fp) && !prefetchingFolders.current.has(fp))
+    if (pending.length === 0) return
+
+    let running = 0, idx = 0
+    function next() {
+      while (running < 3 && idx < pending.length) {
+        const fp = pending[idx++]
+        prefetchingFolders.current.add(fp)
+        running++
+        fetchCloudFolder(fp)
+          .then(audioFiles => { seedCloudDirCache(fp, audioFiles) })
+          .finally(() => { prefetchingFolders.current.delete(fp); running--; next() })
+      }
+    }
+    next()
+  }, [currentFolder, dirEntries, isCloud]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function pushPath(newPath: string[]) {
     if (newPath.join('/') === path.join('/')) return
@@ -456,11 +529,12 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     navigate(path)
   }
 
-  async function selectCloudFolder(folderPath: string) {
-    setLoadingFolders(prev => { const s = new Set(prev); s.add(folderPath); return s })
+  // Lädt rekursiv alle Dateien eines Cloud-Ordners und befüllt cloudFolderFiles /
+  // completedCloudFolders — ohne Auswahl. Wird von selectCloudFolder und dem Prefetch genutzt.
+  async function fetchCloudFolder(folderPath: string): Promise<AudioFile[]> {
     try {
       const res = await fetch(`/api/list-recursive?path=${encodeURIComponent(folderPath)}`)
-      if (!res.ok) return
+      if (!res.ok) return []
       const data: { path: string; name: string; size: number; mod_time: string }[] = await res.json()
       // date bewusst leer: WebDAV-Änderungsdaten sind pro Datei individuell und würden
       // Dateien desselben Ordners in verschiedene Sidebar-Gruppen splitten.
@@ -509,7 +583,19 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
         })
         return s
       })
-      audioFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+      return audioFiles
+    } catch {
+      return []
+    }
+  }
+
+  async function selectCloudFolder(folderPath: string) {
+    setLoadingFolders(prev => { const s = new Set(prev); s.add(folderPath); return s })
+    try {
+      const audioFiles = await fetchCloudFolder(folderPath)
+      // addFiles liest aktuellen Store-State via set(s=>) — kein Closure-Snapshot-Problem
+      // (toggleFile würde optimistisch vorausgewählte Dateien wieder abwählen)
+      addFiles(audioFiles)
     } finally {
       setLoadingFolders(prev => { const s = new Set(prev); s.delete(folderPath); return s })
     }
@@ -669,7 +755,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
               // ✓ oder – am Cloud-Root → alles deselektieren (kein Fetch am Root)
               scopeFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
             } else if (isCloud && !isCurrentCloudComplete && !isCloudRoot) {
-              // – oder leer (Cloud, unvollständig, nicht Root) → vollständig laden + alle auswählen
+              // Optimistisch: bereits bekannte Dateien sofort auswählen
+              addFiles(scopeFiles)
+              // Dann vollständig laden + neue Dateien hinzufügen
               selectCloudFolder(currentFolder)
             } else {
               // – oder leer (lokal / vollständig) → alle auswählen
@@ -811,8 +899,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
                         // ✓ → alles deselektieren
                         folderFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
                       } else if (isCloud && !isCloudComplete) {
-                        // – oder leer (Cloud, unvollständig) → vollständig laden + alle auswählen.
-                        // Entspricht lokalem Verhalten: – → Klick → ✓ → Klick → leer.
+                        // Optimistisch: bereits bekannte Dateien sofort auswählen
+                        addFiles(folderFiles)
+                        // Dann vollständig laden + neue Dateien hinzufügen
                         selectCloudFolder(folderPath)
                       } else {
                         // – oder leer (lokal / vollständig geladener Cloud-Ordner) → restliche auswählen
