@@ -90,6 +90,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   const [localFolderSort, setLocalFolderSort] = useState<Record<string, { by: SortBy; dir: SortDir }>>({})
   const [viewerFile, setViewerFile] = useState<{ path: string; name: string; type: Exclude<FileType, 'other'> } | null>(null)
   const [globalResults, setGlobalResults] = useState<AudioFile[]>([])
+  const [cloudError, setCloudError] = useState<string | null>(null)
 
   const searchRef = useRef<HTMLInputElement>(null)
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null)
@@ -128,6 +129,8 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   const navId = useRef(0)
   const navDir = useRef<'next' | 'prev'>('next')
   const didNavigate = useRef(false)
+  const cloudFolderRef = useRef(cloudFolder)
+  cloudFolderRef.current = cloudFolder
 
   const navigate = useCallback((newPath: string[]) => {
     const key = newPath.join('/')
@@ -135,15 +138,21 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     didNavigate.current = false
     setSearch('')
 
+    const isCloudPath = (k: string) => { const cf = cloudFolderRef.current; return k === cf || k.startsWith(cf + '/') }
+
     const cached = getCachedDir(key)
     if (cached) {
       didNavigate.current = true
       setPath(newPath)
       setDirEntries(cached)
+      setCloudError(null)
       fetchDir(key).then(data => {
         if (navId.current !== id) return
-        if (data) setDirEntries(data)
-        else if (key) navigate(newPath.slice(0, -1))
+        if (data) { setDirEntries(data); setCloudError(null) }
+        else if (key) {
+          if (isCloudPath(key)) setCloudError('Cloud-Server nicht erreichbar')
+          else navigate(newPath.slice(0, -1))
+        }
       })
       return
     }
@@ -155,7 +164,17 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
         didNavigate.current = true
         setPath(newPath)
         setDirEntries(data)
-      } else if (key) navigate(newPath.slice(0, -1))
+        setCloudError(null)
+      } else if (key) {
+        if (isCloudPath(key)) {
+          didNavigate.current = true
+          setPath(newPath)
+          setDirEntries([])
+          setCloudError('Cloud-Server nicht erreichbar')
+        } else {
+          navigate(newPath.slice(0, -1))
+        }
+      }
     })
   }, [])
 
@@ -187,6 +206,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
+
+  // cloudError zurücksetzen wenn Cloud-Ordner verlassen
+  useEffect(() => { if (!isCloud) setCloudError(null) }, [isCloud])
 
   // Globale Suche — debounced, ab 2 Zeichen
   useEffect(() => {
@@ -840,8 +862,23 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
           else if (dx > 0) goForward()
         }}
       >
+        {/* Cloud-Verbindungsfehler */}
+        {cloudError && (
+          <div className="flex flex-col items-center justify-center h-40 gap-3 text-sm select-none">
+            <Cloud size={32} className="text-gray-300" />
+            <span className="text-gray-500">{cloudError}</span>
+            <button
+              className="text-xs px-3 py-1.5 rounded-md text-white transition-colors hover:opacity-90"
+              style={{ background: 'var(--accent)' }}
+              onClick={() => { setCloudError(null); navigate(path) }}
+            >
+              Neu verbinden
+            </button>
+          </div>
+        )}
+
         {/* Leerer Ordner */}
-        {dirEntries !== null && rows.length === 0 && (
+        {!cloudError && dirEntries !== null && rows.length === 0 && (
           <div className="flex items-center justify-center h-24 text-sm text-gray-400">
             Keine Dateien vorhanden
           </div>
