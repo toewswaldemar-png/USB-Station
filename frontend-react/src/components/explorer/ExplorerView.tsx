@@ -9,7 +9,7 @@ import { useUserStore } from '@/stores/userStore'
 import { usePlayerStore } from '@/stores/playerStore'
 import { fmtBytes, formatDate } from '@/lib/dateUtils'
 import type { AudioFile } from '@/types'
-import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs } from './explorerCache'
+import { fetchDir, getCachedDir, onCacheInvalidated, prefetchSubdirs, seedCloudDirCache } from './explorerCache'
 import type { DirEntry } from './explorerCache'
 import FileViewer from './FileViewer'
 import { getFileType, type FileType } from '@/lib/fileType'
@@ -239,11 +239,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
         const fp = pending[idx++]
         prefetchingFolders.current.add(fp)
         running++
-        fetchCloudFolder(fp).finally(() => {
-          prefetchingFolders.current.delete(fp)
-          running--
-          next()
-        })
+        fetchCloudFolder(fp)
+          .then(audioFiles => { seedCloudDirCache(fp, audioFiles) })
+          .finally(() => { prefetchingFolders.current.delete(fp); running--; next() })
       }
     }
     next()

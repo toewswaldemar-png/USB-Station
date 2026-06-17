@@ -117,5 +117,34 @@ export function prefetchSubdirs(parentKey: string, entries: DirEntry[]): void {
   drainPrefetchQueue()
 }
 
+// ─── Cloud-Verzeichnis-Seeding ────────────────────────────────────────────────
+//
+// Aus list-recursive-Ergebnissen die direkten Kinder eines Cloud-Ordners ableiten
+// und in den Cache schreiben — damit navigate() sofort aus dem Cache liefert,
+// ohne auf /api/open warten zu müssen. fetchDir() läuft danach als SWR-Refresh.
+// Kein Überschreiben wenn der Ordner bereits durch /api/open gecacht wurde.
+
+export function seedCloudDirCache(parentPath: string, files: { path: string; size: number }[]): void {
+  if (_cache.has(parentPath)) return  // echter API-Response hat Vorrang
+  const seen = new Map<string, { is_dir: boolean; size: number }>()
+  for (const f of files) {
+    if (!f.path.startsWith(parentPath + '/')) continue
+    const rest = f.path.slice(parentPath.length + 1)
+    const slash = rest.indexOf('/')
+    if (slash === -1) {
+      if (!seen.has(rest)) seen.set(rest, { is_dir: false, size: f.size })
+    } else {
+      const name = rest.slice(0, slash)
+      if (!seen.has(name)) seen.set(name, { is_dir: true, size: 0 })
+    }
+  }
+  if (seen.size === 0) return
+  const entries: DirEntry[] = Array.from(seen.entries()).map(([name, { is_dir, size }]) => ({
+    name, is_dir, size, mod_time: '',
+  }))
+  _cache.set(parentPath, entries)
+  try { sessionStorage.setItem(SS_PREFIX + parentPath, JSON.stringify(entries)) } catch {}
+}
+
 // Root-Verzeichnis sofort beim Modul-Import vorladen — startet vor React-Rendering.
 fetchDir('')
