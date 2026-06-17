@@ -69,6 +69,7 @@ export const useUISettingsStore = create<UISettingsState>((set, get) => ({
   update(partial) {
     const next = { ...get().settings, ...partial }
     set({ settings: next })
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(next)) } catch {}
 
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
