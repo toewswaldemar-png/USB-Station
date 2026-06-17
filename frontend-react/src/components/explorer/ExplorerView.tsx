@@ -91,6 +91,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   const [viewerFile, setViewerFile] = useState<{ path: string; name: string; type: Exclude<FileType, 'other'> } | null>(null)
   const [globalResults, setGlobalResults] = useState<AudioFile[]>([])
   const [cloudError, setCloudError] = useState<string | null>(null)
+  const [navigating, setNavigating] = useState(false)
 
   const searchRef = useRef<HTMLInputElement>(null)
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null)
@@ -137,6 +138,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     const id = ++navId.current
     didNavigate.current = false
     setSearch('')
+    setNavigating(false)  // vorige Ladeanimation immer zurücksetzen
 
     const isCloudPath = (k: string) => { const cf = cloudFolderRef.current; return k === cf || k.startsWith(cf + '/') }
 
@@ -157,9 +159,11 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
       return
     }
 
-    // Cache-Miss: erst warten, dann Pfad + Inhalt atomar setzen → kein Skeleton-Flash.
+    // Cache-Miss: Spinner für Cloud-Pfade — lokale Ordner sind zu schnell für sichtbares Feedback.
+    if (isCloudPath(key)) setNavigating(true)
     fetchDir(key).then(data => {
       if (navId.current !== id) return
+      setNavigating(false)
       if (data !== null) {
         didNavigate.current = true
         setPath(newPath)
@@ -670,6 +674,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
             <span className="flex-1 text-sm font-semibold text-gray-900 truncate">
               {path.length === 0 ? '' : (isCloud && path[path.length - 1] === cloudFolder ? '☁ ' : '') + path[path.length - 1]}
             </span>
+            {navigating && (
+              <div className="w-4 h-4 border-2 border-gray-200 rounded-full animate-spin shrink-0 mr-1" style={{ borderTopColor: 'var(--accent)' }} />
+            )}
           </div>
         ) : (
           /* Desktop: volle Breadcrumb */
@@ -695,6 +702,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
                 </button>
               </span>
             ))}
+            {navigating && (
+              <div className="w-3.5 h-3.5 border-2 border-gray-200 rounded-full animate-spin shrink-0 ml-1" style={{ borderTopColor: 'var(--accent)' }} />
+            )}
           </div>
         )}
         {/* Suchfeld — Ergebnisse ersetzen ab 2 Zeichen die Ordneransicht unten */}
