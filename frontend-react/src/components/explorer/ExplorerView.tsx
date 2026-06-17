@@ -51,7 +51,7 @@ interface ExplorerViewProps {
 
 export default function ExplorerView({ isMobile = false, resetKey }: ExplorerViewProps) {
   const allFiles = useFilesStore(s => s.allFiles)
-  const { selectedFiles, toggleFile, registerFileMeta } = useSelectionStore()
+  const { selectedFiles, toggleFile, addFiles, registerFileMeta } = useSelectionStore()
   const webdavFolderRaw = useConfigStore(s => s.config.webdav_folder)
   const cloudFolder = webdavFolderRaw || 'Cloud'
   const webdavUrl = useConfigStore(s => s.config.webdav_url)
@@ -509,7 +509,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
         })
         return s
       })
-      audioFiles.forEach(f => { if (!selectedFiles.has(f.path)) toggleFile(f.path, f) })
+      // addFiles liest aktuellen Store-State via set(s=>) — kein Closure-Snapshot-Problem
+      // (toggleFile würde optimistisch vorausgewählte Dateien wieder abwählen)
+      addFiles(audioFiles)
     } finally {
       setLoadingFolders(prev => { const s = new Set(prev); s.delete(folderPath); return s })
     }
@@ -669,7 +671,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
               // ✓ oder – am Cloud-Root → alles deselektieren (kein Fetch am Root)
               scopeFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
             } else if (isCloud && !isCurrentCloudComplete && !isCloudRoot) {
-              // – oder leer (Cloud, unvollständig, nicht Root) → vollständig laden + alle auswählen
+              // Optimistisch: bereits bekannte Dateien sofort auswählen
+              addFiles(scopeFiles)
+              // Dann vollständig laden + neue Dateien hinzufügen
               selectCloudFolder(currentFolder)
             } else {
               // – oder leer (lokal / vollständig) → alle auswählen
@@ -811,8 +815,9 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
                         // ✓ → alles deselektieren
                         folderFiles.forEach(f => { if (selectedFiles.has(f.path)) toggleFile(f.path, f) })
                       } else if (isCloud && !isCloudComplete) {
-                        // – oder leer (Cloud, unvollständig) → vollständig laden + alle auswählen.
-                        // Entspricht lokalem Verhalten: – → Klick → ✓ → Klick → leer.
+                        // Optimistisch: bereits bekannte Dateien sofort auswählen
+                        addFiles(folderFiles)
+                        // Dann vollständig laden + neue Dateien hinzufügen
                         selectCloudFolder(folderPath)
                       } else {
                         // – oder leer (lokal / vollständig geladener Cloud-Ordner) → restliche auswählen

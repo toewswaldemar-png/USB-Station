@@ -8,6 +8,7 @@ interface SelectionState {
   groupFilters: Map<string, Set<string>>  // groupKey → erlaubte Pfade
   effectivePaths: () => string[]
   toggleFile: (path: string, file: AudioFile) => void
+  addFiles: (files: AudioFile[]) => void  // Bulk-Add ohne Toggle-Gefahr; liest immer aktuellen State
   toggleGroup: (files: AudioFile[]) => void
   removeGroup: (key: string) => void
   clearAll: () => void
@@ -29,6 +30,18 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
         if (!allowed.has(p)) return false
       }
       return true
+    })
+  },
+
+  addFiles(files) {
+    set(s => {
+      const next = new Set(s.selectedFiles)
+      const meta = new Map(s.selectedFilesMeta)
+      for (const file of files) {
+        next.add(file.path)
+        meta.set(file.path, file)
+      }
+      return { selectedFiles: next, selectedFilesMeta: meta }
     })
   },
 
