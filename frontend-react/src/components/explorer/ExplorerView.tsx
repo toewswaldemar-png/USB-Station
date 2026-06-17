@@ -214,17 +214,35 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   // cloudError zurücksetzen wenn Cloud-Ordner verlassen
   useEffect(() => { if (!isCloud) setCloudError(null) }, [isCloud])
 
-  // Globale Suche — debounced, ab 2 Zeichen
+  // Globale Suche — debounced, ab 2 Zeichen.
+  // Lokale Dateien: /api/search (SQLite). Cloud-Dateien: cloudFolderFiles (in-memory, dedupliziert).
   useEffect(() => {
     if (search.length < 2) { setGlobalResults([]); return }
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(search)}`)
-        if (res.ok) setGlobalResults(await res.json())
+        const localResults: AudioFile[] = res.ok ? await res.json() : []
+
+        let cloudResults: AudioFile[] = []
+        if (webdavConfigured && cloudFolderFiles.size > 0) {
+          const q = search.toLowerCase()
+          const seen = new Set<string>()
+          for (const files of cloudFolderFiles.values()) {
+            for (const f of files) {
+              if (seen.has(f.path)) continue
+              seen.add(f.path)
+              const name = (f.title || f.path.split('/').pop() || '').toLowerCase()
+              if (name.includes(q)) cloudResults.push(f)
+            }
+          }
+          cloudResults = cloudResults.slice(0, 50)
+        }
+
+        setGlobalResults([...localResults, ...cloudResults])
       } catch { /* ignorieren */ }
     }, 300)
     return () => clearTimeout(timer)
-  }, [search])
+  }, [search, cloudFolderFiles, webdavConfigured]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // Prefetch: Unterordner der aktuellen Ebene im Hintergrund vorladen.
