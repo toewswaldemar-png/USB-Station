@@ -220,13 +220,33 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     } catch {}
   }, [cloudFolderFiles, completedCloudFolders, webdavConfigured])
 
-  // Hintergrund-Prefetch: beim Navigieren in einen Cloud-Ordner dessen Unterstruktur vorladen.
-  // Gezielt pro Ordner statt gesamter Baum → bleibt unter dem 500-Dir-Limit von list-recursive.
+  // Hintergrund-Prefetch: jeden sichtbaren Cloud-Unterordner einzeln laden.
+  // Ordnergrößen erscheinen nacheinander; Checkboxen sind danach sofort reaktionsfähig.
+  // Max. 3 parallele Requests — jeder Unterordner bleibt sicher unter dem 500-Dir-Limit.
   useEffect(() => {
     if (!isCloud || !dirEntries) return
-    if (completedCloudFolders.has(currentFolder) || prefetchingFolders.current.has(currentFolder)) return
-    prefetchingFolders.current.add(currentFolder)
-    fetchCloudFolder(currentFolder).finally(() => prefetchingFolders.current.delete(currentFolder))
+    const pending = dirEntries
+      .filter(e => e.is_dir)
+      .map(e => `${currentFolder}/${e.name}`)
+      .filter(fp => !completedCloudFolders.has(fp) && !prefetchingFolders.current.has(fp))
+    if (pending.length === 0) return
+
+    const PARALLEL = 3
+    let running = 0
+    let idx = 0
+    function next() {
+      while (running < PARALLEL && idx < pending.length) {
+        const fp = pending[idx++]
+        prefetchingFolders.current.add(fp)
+        running++
+        fetchCloudFolder(fp).finally(() => {
+          prefetchingFolders.current.delete(fp)
+          running--
+          next()
+        })
+      }
+    }
+    next()
   }, [currentFolder, dirEntries, isCloud]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function pushPath(newPath: string[]) {
