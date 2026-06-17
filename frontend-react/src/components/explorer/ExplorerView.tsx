@@ -894,8 +894,8 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
           </div>
         )}
 
-        {/* Skeleton: sichtbar solange dirEntries noch nicht geladen ist */}
-        {dirEntries === null && (
+        {/* Skeleton: sichtbar solange dirEntries noch nicht geladen ist (nur ohne Fehler) */}
+        {!cloudError && dirEntries === null && (
           <div aria-hidden="true">
             {Array.from({ length: 10 }, (_, i) => (
               <div key={i} className="flex items-center border-b border-gray-100" style={{ height: 36 }}>
@@ -909,7 +909,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
           </div>
         )}
 
-        <div
+        {!cloudError && <div
           key={currentFolder}
           className={didNavigate.current && settings.calAnimation !== 'none' ? `cal-anim-${settings.calAnimation}` : ''}
           style={{ '--cal-dur': { slow: '0.6s', normal: '0.3s', fast: '0.15s' }[settings.calAnimSpeed] ?? '0.3s' } as React.CSSProperties}
@@ -1069,7 +1069,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
             )
           })}
         </div>
-        </div>
+        </div>}
       </div>
       </>
       )}
