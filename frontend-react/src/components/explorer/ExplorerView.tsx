@@ -880,7 +880,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
             <button
               className="text-xs px-3 py-1.5 rounded-md text-white transition-colors hover:opacity-90"
               style={{ background: 'var(--accent)' }}
-              onClick={() => { setCloudError(null); navigate(path) }}
+              onClick={() => { setDirEntries(null); setCloudError(null); navigate(path) }}
             >
               Neu verbinden
             </button>
