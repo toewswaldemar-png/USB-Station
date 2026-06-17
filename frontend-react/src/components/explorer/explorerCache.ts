@@ -124,26 +124,30 @@ export function prefetchSubdirs(parentKey: string, entries: DirEntry[]): void {
 // ohne auf /api/open warten zu müssen. fetchDir() läuft danach als SWR-Refresh.
 // Kein Überschreiben wenn der Ordner bereits durch /api/open gecacht wurde.
 
-export function seedCloudDirCache(parentPath: string, files: { path: string; size: number }[]): void {
-  if (_cache.has(parentPath)) return  // echter API-Response hat Vorrang
-  const seen = new Map<string, { is_dir: boolean; size: number }>()
+export function seedCloudDirCache(rootPath: string, files: { path: string; size: number }[]): void {
+  // Einen Pass über alle Dateien, alle Elternordner aufbauen — nicht nur direkte Kinder.
+  // Danach ist jeder Unterordner sofort navigierbar ohne /api/open-Request.
+  const byParent = new Map<string, Map<string, { is_dir: boolean; size: number }>>()
   for (const f of files) {
-    if (!f.path.startsWith(parentPath + '/')) continue
-    const rest = f.path.slice(parentPath.length + 1)
-    const slash = rest.indexOf('/')
-    if (slash === -1) {
-      if (!seen.has(rest)) seen.set(rest, { is_dir: false, size: f.size })
-    } else {
-      const name = rest.slice(0, slash)
-      if (!seen.has(name)) seen.set(name, { is_dir: true, size: 0 })
+    if (!f.path.startsWith(rootPath + '/')) continue
+    const parts = f.path.slice(rootPath.length + 1).split('/')
+    for (let depth = 0; depth < parts.length; depth++) {
+      const parentPath = depth === 0 ? rootPath : rootPath + '/' + parts.slice(0, depth).join('/')
+      const childName = parts[depth]
+      const isDir = depth < parts.length - 1
+      if (!byParent.has(parentPath)) byParent.set(parentPath, new Map())
+      const ch = byParent.get(parentPath)!
+      if (!ch.has(childName)) ch.set(childName, { is_dir: isDir, size: isDir ? 0 : f.size })
     }
   }
-  if (seen.size === 0) return
-  const entries: DirEntry[] = Array.from(seen.entries()).map(([name, { is_dir, size }]) => ({
-    name, is_dir, size, mod_time: '',
-  }))
-  _cache.set(parentPath, entries)
-  try { sessionStorage.setItem(SS_PREFIX + parentPath, JSON.stringify(entries)) } catch {}
+  for (const [parentPath, children] of byParent) {
+    if (_cache.has(parentPath)) continue  // echter API-Response hat Vorrang
+    const entries: DirEntry[] = Array.from(children.entries()).map(([name, { is_dir, size }]) => ({
+      name, is_dir, size, mod_time: '',
+    }))
+    _cache.set(parentPath, entries)
+    try { sessionStorage.setItem(SS_PREFIX + parentPath, JSON.stringify(entries)) } catch {}
+  }
 }
 
 // Root-Verzeichnis sofort beim Modul-Import vorladen — startet vor React-Rendering.
