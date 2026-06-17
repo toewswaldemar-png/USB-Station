@@ -96,7 +96,7 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
   const [typeaheadQuery, setTypeaheadQuery] = useState('')
   const [typeaheadIndex, setTypeaheadIndex] = useState<number | null>(null)
   const typeaheadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const prefetchDone = useRef(false)
+  const prefetchingFolders = useRef(new Set<string>())
 
   const isFirstReset = useRef(true)
   useLayoutEffect(() => {
@@ -220,14 +220,14 @@ export default function ExplorerView({ isMobile = false, resetKey }: ExplorerVie
     } catch {}
   }, [cloudFolderFiles, completedCloudFolders, webdavConfigured])
 
-  // Hintergrund-Prefetch beim Seitenaufruf: Cloud-Baum laden bevor der Besucher klickt.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Hintergrund-Prefetch: beim Navigieren in einen Cloud-Ordner dessen Unterstruktur vorladen.
+  // Gezielt pro Ordner statt gesamter Baum → bleibt unter dem 500-Dir-Limit von list-recursive.
   useEffect(() => {
-    if (!webdavConfigured || prefetchDone.current) return
-    prefetchDone.current = true
-    if (completedCloudFolders.size > 0) return  // sessionStorage-Cache vorhanden → kein Prefetch nötig
-    fetchCloudFolder(cloudFolder)
-  }, [webdavConfigured, cloudFolder]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!isCloud || !dirEntries) return
+    if (completedCloudFolders.has(currentFolder) || prefetchingFolders.current.has(currentFolder)) return
+    prefetchingFolders.current.add(currentFolder)
+    fetchCloudFolder(currentFolder).finally(() => prefetchingFolders.current.delete(currentFolder))
+  }, [currentFolder, dirEntries, isCloud]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function pushPath(newPath: string[]) {
     if (newPath.join('/') === path.join('/')) return
